@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-6 py-24 text-center dark:bg-black">
@@ -14,6 +16,12 @@ export default function Home() {
           키워드 선정을 돕기 위해 개인 프로젝트로 개발 중이며, 현재는 초기
           개발 단계입니다.
         </p>
+        <Link
+          href="/login"
+          className="rounded-full bg-foreground px-6 py-2.5 text-sm font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
+        >
+          시작하기
+        </Link>
       </main>
     </div>
   );
