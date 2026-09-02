@@ -8,9 +8,16 @@ function generateSignature(timestamp: string, secretKey: string) {
   return crypto.createHmac("sha256", secretKey).update(message).digest("base64");
 }
 
+export type RelatedKeyword = {
+  keyword: string;
+  pcCount: number;
+  mobileCount: number;
+};
+
 export type NaverSearchVolume = {
   pcCount: number;
   mobileCount: number;
+  relatedKeywords: RelatedKeyword[];
 };
 
 type NaverKeywordItem = {
@@ -58,14 +65,24 @@ export async function getNaverSearchVolume(
 
   const data = (await res.json()) as { keywordList?: NaverKeywordItem[] };
   const normalized = keyword.replace(/\s/g, "");
-  const stat =
-    data.keywordList?.find((item) => item.relKeyword === normalized) ??
-    data.keywordList?.[0];
+  const list = data.keywordList ?? [];
+  const stat = list.find((item) => item.relKeyword === normalized) ?? list[0];
 
   if (!stat) return null;
+
+  const relatedKeywords: RelatedKeyword[] = list
+    .filter((item) => item.relKeyword !== stat.relKeyword)
+    .map((item) => ({
+      keyword: item.relKeyword,
+      pcCount: parseCount(item.monthlyPcQcCnt),
+      mobileCount: parseCount(item.monthlyMobileQcCnt),
+    }))
+    .sort((a, b) => b.pcCount + b.mobileCount - (a.pcCount + a.mobileCount))
+    .slice(0, 10);
 
   return {
     pcCount: parseCount(stat.monthlyPcQcCnt),
     mobileCount: parseCount(stat.monthlyMobileQcCnt),
+    relatedKeywords,
   };
 }
