@@ -1,6 +1,13 @@
 export type YoutubeVideo = {
+  videoId: string;
   title: string;
+  thumbnailUrl: string;
+  channelId: string;
+  channelTitle: string;
+  subscriberCount: number;
   viewCount: number;
+  likeCount: number;
+  commentCount: number;
 };
 
 export type YoutubeStats = {
@@ -10,8 +17,22 @@ export type YoutubeStats = {
 
 type YoutubeSearchItem = { id: { videoId?: string } };
 type YoutubeVideoItem = {
-  snippet: { title: string };
-  statistics: { viewCount?: string };
+  id: string;
+  snippet: {
+    title: string;
+    channelId: string;
+    channelTitle: string;
+    thumbnails: { medium?: { url: string }; default?: { url: string } };
+  };
+  statistics: {
+    viewCount?: string;
+    likeCount?: string;
+    commentCount?: string;
+  };
+};
+type YoutubeChannelItem = {
+  id: string;
+  statistics: { subscriberCount?: string };
 };
 
 export async function getYoutubeStats(keyword: string): Promise<YoutubeStats> {
@@ -51,10 +72,40 @@ export async function getYoutubeStats(keyword: string): Promise<YoutubeStats> {
     throw new Error(`YouTube 동영상 API 오류: ${videosRes.status}`);
   }
   const videosData = (await videosRes.json()) as { items?: YoutubeVideoItem[] };
+  const videoItems = videosData.items ?? [];
 
-  const videos: YoutubeVideo[] = (videosData.items ?? []).map((item) => ({
+  const channelIds = [...new Set(videoItems.map((v) => v.snippet.channelId))];
+  const subscriberByChannel = new Map<string, number>();
+
+  if (channelIds.length > 0) {
+    const channelsUrl = new URL("https://www.googleapis.com/youtube/v3/channels");
+    channelsUrl.searchParams.set("part", "statistics");
+    channelsUrl.searchParams.set("id", channelIds.join(","));
+    channelsUrl.searchParams.set("key", apiKey);
+
+    const channelsRes = await fetch(channelsUrl);
+    if (!channelsRes.ok) {
+      throw new Error(`YouTube 채널 API 오류: ${channelsRes.status}`);
+    }
+    const channelsData = (await channelsRes.json()) as { items?: YoutubeChannelItem[] };
+    for (const c of channelsData.items ?? []) {
+      subscriberByChannel.set(c.id, Number(c.statistics.subscriberCount ?? 0));
+    }
+  }
+
+  const videos: YoutubeVideo[] = videoItems.map((item) => ({
+    videoId: item.id,
     title: item.snippet.title,
+    thumbnailUrl:
+      item.snippet.thumbnails.medium?.url ??
+      item.snippet.thumbnails.default?.url ??
+      "",
+    channelId: item.snippet.channelId,
+    channelTitle: item.snippet.channelTitle,
+    subscriberCount: subscriberByChannel.get(item.snippet.channelId) ?? 0,
     viewCount: Number(item.statistics.viewCount ?? 0),
+    likeCount: Number(item.statistics.likeCount ?? 0),
+    commentCount: Number(item.statistics.commentCount ?? 0),
   }));
 
   const totalViews = videos.reduce((sum, v) => sum + v.viewCount, 0);
