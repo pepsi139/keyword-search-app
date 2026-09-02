@@ -17,7 +17,7 @@ export default async function DashboardPage() {
     <div className="flex min-h-screen flex-col items-center gap-10 bg-zinc-50 px-6 py-16 dark:bg-black">
       <div className="flex w-full max-w-3xl items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">키워드 검색량 비교</h1>
+          <h1 className="text-xl font-semibold">키워드레이더</h1>
           <p className="text-sm text-zinc-500">{user.email}</p>
         </div>
         <form action={signOut}>

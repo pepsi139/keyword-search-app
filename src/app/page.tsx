@@ -8,7 +8,7 @@ export default function Home() {
           개발 준비 중
         </span>
         <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50 sm:text-4xl">
-          키워드 검색량 비교 도구
+          키워드레이더
         </h1>
         <p className="text-lg leading-8 text-zinc-600 dark:text-zinc-400">
           네이버, 구글, 유튜브의 키워드 검색량과 조회수를 한 화면에서

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "키워드 검색량 비교 도구",
+  title: "키워드레이더",
   description: "네이버, 구글, 유튜브 키워드 검색량/조회수 비교 서비스",
 };
 
