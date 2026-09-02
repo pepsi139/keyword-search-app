@@ -7,6 +7,7 @@ export type Video = {
   channelId: string;
   channelTitle: string;
   subscriberCount: number;
+  publishedAt: string;
   viewCount: number;
   likeCount: number;
   commentCount: number;
@@ -14,6 +15,10 @@ export type Video = {
 };
 
 const numberFormat = new Intl.NumberFormat("ko-KR");
+
+function formatDate(iso: string) {
+  return iso.slice(0, 10).replace(/-/g, ".");
+}
 
 export function VideoCard({
   video,
@@ -48,6 +53,7 @@ export function VideoCard({
             {video.channelTitle} · 구독자 {numberFormat.format(video.subscriberCount)}명
           </p>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+            <span>{formatDate(video.publishedAt)}</span>
             <span>조회수 {numberFormat.format(video.viewCount)}</span>
             <span>좋아요 {numberFormat.format(video.likeCount)}</span>
             <span>댓글 {numberFormat.format(video.commentCount)}</span>

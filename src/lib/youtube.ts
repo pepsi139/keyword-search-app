@@ -11,6 +11,7 @@ export type YoutubeVideo = {
   channelId: string;
   channelTitle: string;
   subscriberCount: number;
+  publishedAt: string;
   viewCount: number;
   likeCount: number;
   commentCount: number;
@@ -30,6 +31,7 @@ type YoutubeVideoItem = {
     title: string;
     channelId: string;
     channelTitle: string;
+    publishedAt: string;
     thumbnails: { medium?: { url: string }; default?: { url: string } };
   };
   statistics: {
@@ -209,6 +211,7 @@ export async function getYoutubeStats(keyword: string): Promise<YoutubeStats> {
       channelId: item.snippet.channelId,
       channelTitle: item.snippet.channelTitle,
       subscriberCount: subscriberByChannel.get(item.snippet.channelId) ?? 0,
+      publishedAt: item.snippet.publishedAt,
       viewCount: Number(item.statistics.viewCount ?? 0),
       likeCount: Number(item.statistics.likeCount ?? 0),
       commentCount: Number(item.statistics.commentCount ?? 0),
