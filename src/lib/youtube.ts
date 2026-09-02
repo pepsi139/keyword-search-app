@@ -19,7 +19,8 @@ export type YoutubeVideo = {
 
 export type YoutubeStats = {
   totalViews: number;
-  videos: YoutubeVideo[];
+  topVideos: YoutubeVideo[];
+  latestVideos: YoutubeVideo[];
 };
 
 type YoutubeSearchItem = { id: { videoId?: string } };
@@ -120,31 +121,45 @@ export async function getYoutubeSuggestions(keyword: string): Promise<string[]> 
   return (data[1] ?? []).filter((s) => s.toLowerCase() !== keyword.toLowerCase());
 }
 
+async function searchVideoIds(
+  apiKey: string,
+  keyword: string,
+  order: "relevance" | "date",
+  maxResults: number,
+): Promise<string[]> {
+  const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
+  searchUrl.searchParams.set("part", "id");
+  searchUrl.searchParams.set("q", keyword);
+  searchUrl.searchParams.set("type", "video");
+  searchUrl.searchParams.set("maxResults", String(maxResults));
+  searchUrl.searchParams.set("order", order);
+  searchUrl.searchParams.set("key", apiKey);
+
+  const res = await fetch(searchUrl);
+  if (!res.ok) {
+    throw new Error(`YouTube 검색 API 오류: ${res.status}`);
+  }
+  const data = (await res.json()) as { items?: YoutubeSearchItem[] };
+  return (data.items ?? [])
+    .map((item) => item.id.videoId)
+    .filter((id): id is string => Boolean(id));
+}
+
 export async function getYoutubeStats(keyword: string): Promise<YoutubeStats> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
     throw new Error("YouTube API 키가 설정되지 않았습니다.");
   }
 
-  const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
-  searchUrl.searchParams.set("part", "id");
-  searchUrl.searchParams.set("q", keyword);
-  searchUrl.searchParams.set("type", "video");
-  searchUrl.searchParams.set("maxResults", "5");
-  searchUrl.searchParams.set("order", "relevance");
-  searchUrl.searchParams.set("key", apiKey);
+  const [topIds, latestIds] = await Promise.all([
+    searchVideoIds(apiKey, keyword, "relevance", 5),
+    searchVideoIds(apiKey, keyword, "date", 10),
+  ]);
 
-  const searchRes = await fetch(searchUrl);
-  if (!searchRes.ok) {
-    throw new Error(`YouTube 검색 API 오류: ${searchRes.status}`);
-  }
-  const searchData = (await searchRes.json()) as { items?: YoutubeSearchItem[] };
-  const videoIds = (searchData.items ?? [])
-    .map((item) => item.id.videoId)
-    .filter((id): id is string => Boolean(id));
+  const videoIds = [...new Set([...topIds, ...latestIds])];
 
   if (videoIds.length === 0) {
-    return { totalViews: 0, videos: [] };
+    return { totalViews: 0, topVideos: [], latestVideos: [] };
   }
 
   const videosUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
@@ -182,23 +197,28 @@ export async function getYoutubeStats(keyword: string): Promise<YoutubeStats> {
     videoItems.map((item) => getVideoComments(item.id)),
   );
 
-  const videos: YoutubeVideo[] = videoItems.map((item, i) => ({
-    videoId: item.id,
-    title: item.snippet.title,
-    thumbnailUrl:
-      item.snippet.thumbnails.medium?.url ??
-      item.snippet.thumbnails.default?.url ??
-      "",
-    channelId: item.snippet.channelId,
-    channelTitle: item.snippet.channelTitle,
-    subscriberCount: subscriberByChannel.get(item.snippet.channelId) ?? 0,
-    viewCount: Number(item.statistics.viewCount ?? 0),
-    likeCount: Number(item.statistics.likeCount ?? 0),
-    commentCount: Number(item.statistics.commentCount ?? 0),
-    topComments: commentsByVideo[i] ?? [],
-  }));
+  const videoMap = new Map<string, YoutubeVideo>();
+  videoItems.forEach((item, i) => {
+    videoMap.set(item.id, {
+      videoId: item.id,
+      title: item.snippet.title,
+      thumbnailUrl:
+        item.snippet.thumbnails.medium?.url ??
+        item.snippet.thumbnails.default?.url ??
+        "",
+      channelId: item.snippet.channelId,
+      channelTitle: item.snippet.channelTitle,
+      subscriberCount: subscriberByChannel.get(item.snippet.channelId) ?? 0,
+      viewCount: Number(item.statistics.viewCount ?? 0),
+      likeCount: Number(item.statistics.likeCount ?? 0),
+      commentCount: Number(item.statistics.commentCount ?? 0),
+      topComments: commentsByVideo[i] ?? [],
+    });
+  });
 
-  const totalViews = videos.reduce((sum, v) => sum + v.viewCount, 0);
+  const topVideos = topIds.map((id) => videoMap.get(id)).filter((v): v is YoutubeVideo => Boolean(v));
+  const latestVideos = latestIds.map((id) => videoMap.get(id)).filter((v): v is YoutubeVideo => Boolean(v));
+  const totalViews = topVideos.reduce((sum, v) => sum + v.viewCount, 0);
 
-  return { totalViews, videos };
+  return { totalViews, topVideos, latestVideos };
 }

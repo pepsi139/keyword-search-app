@@ -3,27 +3,14 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { KeywordSidebar } from "../keyword-sidebar";
-
-type VideoComment = { author: string; text: string; likeCount: number };
-
-type Video = {
-  videoId: string;
-  title: string;
-  thumbnailUrl: string;
-  channelId: string;
-  channelTitle: string;
-  subscriberCount: number;
-  viewCount: number;
-  likeCount: number;
-  commentCount: number;
-  topComments: VideoComment[];
-};
+import { VideoCard, type Video } from "./video-card";
 
 type YoutubeResult = {
   keyword: string;
   youtube: {
     totalViews: number;
-    videos: Video[];
+    topVideos: Video[];
+    latestVideos: Video[];
   };
 };
 
@@ -240,78 +227,42 @@ export function YoutubeSearchPanel() {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <div className="flex flex-1 flex-col gap-3">
             <p className="text-sm text-zinc-500">
-              상위 {result.youtube.videos.length}개 영상 합계 조회수{" "}
+              상위 {result.youtube.topVideos.length}개 영상 합계 조회수{" "}
               <span className="font-medium text-zinc-900 dark:text-zinc-100">
                 {numberFormat.format(result.youtube.totalViews)}
               </span>
             </p>
 
-            {result.youtube.videos.length === 0 ? (
+            {result.youtube.topVideos.length === 0 ? (
               <p className="text-sm text-zinc-400">데이터 없음</p>
             ) : (
-              result.youtube.videos.map((v) => (
-                <div
-                  key={v.videoId}
-                  className="flex flex-col gap-3 rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]"
-                >
-                  <div className="flex gap-4">
-                    {v.thumbnailUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={v.thumbnailUrl}
-                        alt={v.title}
-                        className="h-20 w-32 shrink-0 rounded-md object-cover"
-                      />
-                    )}
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <a
-                        href={`https://www.youtube.com/watch?v=${v.videoId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="truncate text-sm font-medium hover:underline"
-                      >
-                        {v.title}
-                      </a>
-                      <p className="text-xs text-zinc-500">
-                        {v.channelTitle} · 구독자 {numberFormat.format(v.subscriberCount)}명
-                      </p>
-                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
-                        <span>조회수 {numberFormat.format(v.viewCount)}</span>
-                        <span>좋아요 {numberFormat.format(v.likeCount)}</span>
-                        <span>댓글 {numberFormat.format(v.commentCount)}</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleWatch(v)}
-                      className={`h-fit shrink-0 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                        watched.has(v.videoId)
-                          ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
-                          : "border-black/[.12] text-zinc-500 hover:bg-black/[.04] dark:border-white/[.16] dark:hover:bg-white/[.06]"
-                      }`}
-                    >
-                      {watched.has(v.videoId) ? "🔔 관심 영상 저장됨" : "🔔 관심 영상 저장"}
-                    </button>
-                  </div>
+              <>
+                <h4 className="text-xs font-semibold text-zinc-400">상위 5개 영상</h4>
+                {result.youtube.topVideos.map((v) => (
+                  <VideoCard
+                    key={v.videoId}
+                    video={v}
+                    watched={watched.has(v.videoId)}
+                    onToggleWatch={toggleWatch}
+                  />
+                ))}
+              </>
+            )}
 
-                  {v.topComments.length > 0 && (
-                    <div className="border-t border-black/[.06] pt-3 dark:border-white/[.08]">
-                      <p className="mb-2 text-xs font-semibold text-zinc-500">
-                        시청자 댓글 반응 ({v.topComments.length})
-                      </p>
-                      <ul className="flex flex-col gap-1.5">
-                        {v.topComments.map((c, i) => (
-                          <li key={i} className="text-xs text-zinc-600 dark:text-zinc-400">
-                            <span className="font-medium text-zinc-500">{c.author}</span>
-                            {": "}
-                            <span className="line-clamp-2">{c.text}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ))
+            {result.youtube.latestVideos.length > 0 && (
+              <>
+                <h4 className="mt-2 text-xs font-semibold text-zinc-400">
+                  최신 등록 영상 10개
+                </h4>
+                {result.youtube.latestVideos.map((v) => (
+                  <VideoCard
+                    key={v.videoId}
+                    video={v}
+                    watched={watched.has(v.videoId)}
+                    onToggleWatch={toggleWatch}
+                  />
+                ))}
+              </>
             )}
           </div>
 
