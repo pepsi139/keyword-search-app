@@ -6,11 +6,6 @@ type SearchResult = {
   keyword: string;
   naver: { pcCount: number; mobileCount: number } | null;
   naverError: string | null;
-  youtube: {
-    totalViews: number;
-    videos: { title: string; viewCount: number }[];
-  } | null;
-  youtubeError: string | null;
   google: { avgMonthlySearches: number } | null;
 };
 
@@ -69,7 +64,7 @@ export function SearchPanel() {
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {result && (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
             <h3 className="mb-3 text-sm font-semibold text-zinc-500">
               네이버 월간 검색량
@@ -105,33 +100,7 @@ export function SearchPanel() {
                 {numberFormat.format(result.google.avgMonthlySearches)}
               </p>
             ) : (
-              <p className="text-sm text-zinc-400">
-                Google Ads 승인 심사중
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
-            <h3 className="mb-3 text-sm font-semibold text-zinc-500">
-              유튜브 상위 영상 조회수
-            </h3>
-            {result.youtube && result.youtube.videos.length > 0 ? (
-              <div className="flex flex-col gap-2 text-sm">
-                <p className="font-medium">
-                  합계 {numberFormat.format(result.youtube.totalViews)}
-                </p>
-                <ul className="flex flex-col gap-1 text-xs text-zinc-500">
-                  {result.youtube.videos.map((v, i) => (
-                    <li key={i} className="truncate">
-                      {v.title} · {numberFormat.format(v.viewCount)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="text-sm text-zinc-400">
-                {result.youtubeError ? "조회 실패" : "데이터 없음"}
-              </p>
+              <p className="text-sm text-zinc-400">Google Ads 승인 심사중</p>
             )}
           </div>
         </div>

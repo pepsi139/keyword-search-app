@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getNaverSearchVolume } from "@/lib/naver";
-import { getGoogleSearchVolume } from "@/lib/google-ads";
+import { getYoutubeStats } from "@/lib/youtube";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -20,15 +19,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "키워드를 입력해주세요." }, { status: 400 });
   }
 
-  const [naverResult, googleResult] = await Promise.allSettled([
-    getNaverSearchVolume(keyword),
-    getGoogleSearchVolume(keyword),
-  ]);
-
-  return NextResponse.json({
-    keyword,
-    naver: naverResult.status === "fulfilled" ? naverResult.value : null,
-    naverError: naverResult.status === "rejected" ? String(naverResult.reason) : null,
-    google: googleResult.status === "fulfilled" ? googleResult.value : null,
-  });
+  try {
+    const youtube = await getYoutubeStats(keyword);
+    return NextResponse.json({ keyword, youtube });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "유튜브 조회 중 오류가 발생했습니다." },
+      { status: 502 },
+    );
+  }
 }
