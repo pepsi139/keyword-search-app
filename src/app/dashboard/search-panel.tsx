@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TrendChart } from "./trend-chart";
+import { KeywordSidebar } from "./keyword-sidebar";
 
 type RelatedKeyword = { keyword: string; pcCount: number; mobileCount: number };
 type TrendPoint = { period: string; ratio: number };
@@ -33,13 +34,19 @@ export function SearchPanel() {
   const [result, setResult] = useState<SearchResult | null>(null);
 
   const [period, setPeriod] = useState("month");
-  const [trendData, setTrendData] = useState<TrendPoint[] | null>(null);
+  const [naverTrend, setNaverTrend] = useState<TrendPoint[] | null>(null);
+  const [googleTrend, setGoogleTrend] = useState<TrendPoint[] | null>(null);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendError, setTrendError] = useState<string | null>(null);
+  const [googleTrendError, setGoogleTrendError] = useState<string | null>(null);
+
+  const [suggestions, setSuggestions] = useState<string[] | null>(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
 
   async function fetchTrend(term: string, selectedPeriod: string) {
     setTrendLoading(true);
     setTrendError(null);
+    setGoogleTrendError(null);
     try {
       const res = await fetch("/api/trend", {
         method: "POST",
@@ -49,14 +56,36 @@ export function SearchPanel() {
       const data = await res.json();
       if (!res.ok) {
         setTrendError(data.error ?? "추이 조회 중 오류가 발생했습니다.");
-        setTrendData(null);
+        setNaverTrend(null);
+        setGoogleTrend(null);
       } else {
-        setTrendData(data.data);
+        setNaverTrend(data.naver);
+        setGoogleTrend(data.google);
+        if (data.naverError) setTrendError("네이버 추이 조회 실패");
+        if (data.googleError) setGoogleTrendError("구글 트렌드 조회 실패 (비공식 API 제한일 수 있음)");
       }
     } catch {
       setTrendError("네트워크 오류가 발생했습니다.");
     } finally {
       setTrendLoading(false);
+    }
+  }
+
+  async function fetchSuggestions(term: string) {
+    setSuggestLoading(true);
+    try {
+      const res = await fetch("/api/youtube-suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyword: term }),
+      });
+      const data = await res.json();
+      if (res.ok) setSuggestions(data.suggestions);
+      else setSuggestions(null);
+    } catch {
+      setSuggestions(null);
+    } finally {
+      setSuggestLoading(false);
     }
   }
 
@@ -78,6 +107,7 @@ export function SearchPanel() {
       } else {
         setResult(data);
         fetchTrend(term, period);
+        fetchSuggestions(term);
       }
     } catch {
       setError("네트워크 오류가 발생했습니다.");
@@ -168,7 +198,7 @@ export function SearchPanel() {
             <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-zinc-500">
-                  검색 관심도 추이 (네이버, 상대값)
+                  검색 관심도 추이 (상대값)
                 </h3>
                 <div className="flex gap-1">
                   {PERIODS.map((p) => (
@@ -190,41 +220,38 @@ export function SearchPanel() {
 
               {trendLoading ? (
                 <p className="text-sm text-zinc-400">불러오는 중...</p>
-              ) : trendError ? (
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {trendError}
-                </p>
               ) : (
-                <TrendChart data={trendData ?? []} />
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <p className="mb-1 text-xs text-zinc-500">네이버</p>
+                    {trendError ? (
+                      <p className="text-sm text-red-600 dark:text-red-400">{trendError}</p>
+                    ) : (
+                      <TrendChart data={naverTrend ?? []} />
+                    )}
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-zinc-500">구글 (비공식, 불안정할 수 있음)</p>
+                    {googleTrendError ? (
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {googleTrendError}
+                      </p>
+                    ) : (
+                      <TrendChart data={googleTrend ?? []} />
+                    )}
+                  </div>
+                </div>
               )}
             </div>
+
           </div>
 
-          <aside className="w-full shrink-0 rounded-lg border border-black/[.08] p-4 dark:border-white/[.12] lg:w-64">
-            <h3 className="mb-3 text-sm font-semibold text-zinc-500">
-              연관 검색어
-            </h3>
-            {result.naver && result.naver.relatedKeywords.length > 0 ? (
-              <ul className="flex flex-col gap-1">
-                {result.naver.relatedKeywords.map((rk) => (
-                  <li key={rk.keyword}>
-                    <button
-                      type="button"
-                      onClick={() => handleRelatedClick(rk.keyword)}
-                      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06]"
-                    >
-                      <span className="truncate">{rk.keyword}</span>
-                      <span className="shrink-0 pl-2 text-xs text-zinc-400">
-                        {numberFormat.format(rk.pcCount + rk.mobileCount)}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-zinc-400">연관 검색어 없음</p>
-            )}
-          </aside>
+          <KeywordSidebar
+            suggestions={suggestions}
+            suggestLoading={suggestLoading}
+            relatedKeywords={result.naver?.relatedKeywords ?? []}
+            onSelect={handleRelatedClick}
+          />
         </div>
       )}
     </div>
