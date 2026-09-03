@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TrendChart } from "./trend-chart";
 import { KeywordSidebar } from "./keyword-sidebar";
+
+type TrendingKeyword = { keyword: string; count: number };
 
 type RelatedKeyword = { keyword: string; pcCount: number; mobileCount: number };
 type TrendPoint = { period: string; ratio: number };
@@ -42,6 +44,26 @@ export function SearchPanel() {
 
   const [suggestions, setSuggestions] = useState<string[] | null>(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
+
+  const [trendingKeywords, setTrendingKeywords] = useState<TrendingKeyword[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [trendingError, setTrendingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadTrendingKeywords() {
+      try {
+        const res = await fetch("/api/news-trending");
+        const data = await res.json();
+        if (res.ok) setTrendingKeywords(data.keywords);
+        else setTrendingError(data.error ?? "조회 실패");
+      } catch {
+        setTrendingError("네트워크 오류가 발생했습니다.");
+      } finally {
+        setTrendingLoading(false);
+      }
+    }
+    loadTrendingKeywords();
+  }, []);
 
   async function fetchTrend(term: string, selectedPeriod: string) {
     setTrendLoading(true);
@@ -148,6 +170,32 @@ export function SearchPanel() {
           {loading ? "검색 중..." : "검색"}
         </button>
       </form>
+
+      <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
+        <h3 className="mb-3 text-sm font-semibold text-zinc-500">
+          실시간 인기 키워드 (뉴스 기반)
+        </h3>
+        {trendingLoading ? (
+          <p className="text-sm text-zinc-400">불러오는 중...</p>
+        ) : trendingError ? (
+          <p className="text-sm text-red-600 dark:text-red-400">{trendingError}</p>
+        ) : trendingKeywords.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {trendingKeywords.map((tk, i) => (
+              <button
+                key={tk.keyword}
+                type="button"
+                onClick={() => handleRelatedClick(tk.keyword)}
+                className="rounded-full border border-black/[.12] px-3 py-1 text-xs transition-colors hover:bg-black/[.04] dark:border-white/[.16] dark:hover:bg-white/[.06]"
+              >
+                {i + 1}. {tk.keyword}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-400">데이터 없음</p>
+        )}
+      </div>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 

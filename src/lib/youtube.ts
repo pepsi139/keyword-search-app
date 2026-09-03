@@ -225,3 +225,57 @@ export async function getYoutubeStats(keyword: string): Promise<YoutubeStats> {
 
   return { totalViews, topVideos, latestVideos };
 }
+
+export async function getTrendingVideos(): Promise<YoutubeVideo[]> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) {
+    throw new Error("YouTube API 키가 설정되지 않았습니다.");
+  }
+
+  const videosUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
+  videosUrl.searchParams.set("part", "snippet,statistics");
+  videosUrl.searchParams.set("chart", "mostPopular");
+  videosUrl.searchParams.set("regionCode", "KR");
+  videosUrl.searchParams.set("maxResults", "10");
+  videosUrl.searchParams.set("key", apiKey);
+
+  const videosRes = await fetch(videosUrl);
+  if (!videosRes.ok) {
+    throw new Error(`YouTube 인기 급상승 API 오류: ${videosRes.status}`);
+  }
+  const videosData = (await videosRes.json()) as { items?: YoutubeVideoItem[] };
+  const videoItems = videosData.items ?? [];
+
+  const channelIds = [...new Set(videoItems.map((v) => v.snippet.channelId))];
+  const subscriberByChannel = new Map<string, number>();
+
+  if (channelIds.length > 0) {
+    const channelsUrl = new URL("https://www.googleapis.com/youtube/v3/channels");
+    channelsUrl.searchParams.set("part", "statistics");
+    channelsUrl.searchParams.set("id", channelIds.join(","));
+    channelsUrl.searchParams.set("key", apiKey);
+
+    const channelsRes = await fetch(channelsUrl);
+    if (channelsRes.ok) {
+      const channelsData = (await channelsRes.json()) as { items?: YoutubeChannelItem[] };
+      for (const c of channelsData.items ?? []) {
+        subscriberByChannel.set(c.id, Number(c.statistics.subscriberCount ?? 0));
+      }
+    }
+  }
+
+  return videoItems.map((item) => ({
+    videoId: item.id,
+    title: item.snippet.title,
+    thumbnailUrl:
+      item.snippet.thumbnails.medium?.url ?? item.snippet.thumbnails.default?.url ?? "",
+    channelId: item.snippet.channelId,
+    channelTitle: item.snippet.channelTitle,
+    subscriberCount: subscriberByChannel.get(item.snippet.channelId) ?? 0,
+    publishedAt: item.snippet.publishedAt,
+    viewCount: Number(item.statistics.viewCount ?? 0),
+    likeCount: Number(item.statistics.likeCount ?? 0),
+    commentCount: Number(item.statistics.commentCount ?? 0),
+    topComments: [],
+  }));
+}

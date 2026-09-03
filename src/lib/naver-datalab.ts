@@ -1,4 +1,4 @@
-const ENDPOINT = "https://naveropenapi.apigw.ntruss.com/datalab/v1/search";
+const ENDPOINT = "https://naverapihub.apigw.ntruss.com/search-trend/v1/search";
 
 export type TrendPoint = { period: string; ratio: number };
 export type NaverTimeUnit = "date" | "week" | "month";

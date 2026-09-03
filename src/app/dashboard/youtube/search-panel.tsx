@@ -38,6 +38,10 @@ export function YoutubeSearchPanel() {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [relatedKeywords, setRelatedKeywords] = useState<RelatedKeyword[]>([]);
 
+  const [trendingVideos, setTrendingVideos] = useState<Video[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [trendingError, setTrendingError] = useState<string | null>(null);
+
   async function loadWatches() {
     const {
       data: { user },
@@ -55,6 +59,20 @@ export function YoutubeSearchPanel() {
 
   useEffect(() => {
     loadWatches();
+
+    async function loadTrending() {
+      try {
+        const res = await fetch("/api/youtube-trending");
+        const data = await res.json();
+        if (res.ok) setTrendingVideos(data.videos);
+        else setTrendingError(data.error ?? "조회 실패");
+      } catch {
+        setTrendingError("네트워크 오류가 발생했습니다.");
+      } finally {
+        setTrendingLoading(false);
+      }
+    }
+    loadTrending();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -184,6 +202,30 @@ export function YoutubeSearchPanel() {
           {loading ? "검색 중..." : "검색"}
         </button>
       </form>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
+        <h3 className="text-sm font-semibold text-zinc-500">
+          지금 인기 급상승 동영상 (대한민국)
+        </h3>
+        {trendingLoading ? (
+          <p className="text-sm text-zinc-400">불러오는 중...</p>
+        ) : trendingError ? (
+          <p className="text-sm text-red-600 dark:text-red-400">{trendingError}</p>
+        ) : trendingVideos.length > 0 ? (
+          trendingVideos
+            .slice(0, 5)
+            .map((v) => (
+              <VideoCard
+                key={v.videoId}
+                video={v}
+                watched={watched.has(v.videoId)}
+                onToggleWatch={toggleWatch}
+              />
+            ))
+        ) : (
+          <p className="text-sm text-zinc-400">데이터 없음</p>
+        )}
+      </div>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
