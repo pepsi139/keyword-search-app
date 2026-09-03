@@ -18,7 +18,69 @@ type SearchResult = {
   } | null;
   naverError: string | null;
   google: { avgMonthlySearches: number } | null;
+  blogCount: number | null;
 };
+
+function StatIcon({ variant }: { variant: "pc" | "mobile" | "sum" | "blog" | "google" }) {
+  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8 } as const;
+  if (variant === "pc")
+    return (
+      <svg {...common}>
+        <rect x="3" y="4" width="18" height="12" rx="1.5" />
+        <path d="M8 20h8M12 16v4" />
+      </svg>
+    );
+  if (variant === "mobile")
+    return (
+      <svg {...common}>
+        <rect x="7" y="3" width="10" height="18" rx="1.5" />
+        <path d="M11 18h2" />
+      </svg>
+    );
+  if (variant === "sum")
+    return (
+      <svg {...common}>
+        <path d="M6 5h12l-6 7 6 7H6l6-7-6-7z" />
+      </svg>
+    );
+  if (variant === "blog")
+    return (
+      <svg {...common}>
+        <path d="M4 4h16v16H4z" />
+        <path d="M8 9h8M8 13h8M8 17h4" />
+      </svg>
+    );
+  return (
+    <svg {...common}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.3-4.3" />
+    </svg>
+  );
+}
+
+function StatCard({
+  icon,
+  color,
+  label,
+  value,
+}: {
+  icon: "pc" | "mobile" | "sum" | "blog" | "google";
+  color: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${color}`}>
+        <StatIcon variant={icon} />
+      </div>
+      <div className="flex flex-col">
+        <span className="text-xs text-zinc-500">{label}</span>
+        <span className="text-sm font-semibold">{value}</span>
+      </div>
+    </div>
+  );
+}
 
 const PERIODS = [
   { id: "day", label: "일간" },
@@ -155,46 +217,78 @@ export function SearchPanel() {
 
   return (
     <div className="flex w-full max-w-5xl flex-col gap-6">
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          placeholder="검색할 키워드를 입력하세요"
-          className="flex-1 rounded-md border border-black/[.12] bg-transparent px-4 py-2.5 text-sm outline-none focus:border-black dark:border-white/[.16] dark:focus:border-white"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-md bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-50 dark:hover:bg-[#ccc]"
-        >
-          {loading ? "검색 중..." : "검색"}
-        </button>
-      </form>
+      <div className="relative overflow-hidden rounded-2xl bg-zinc-950 px-6 py-14 text-center sm:px-12 sm:py-16">
+        <div className="pointer-events-none absolute -top-24 left-1/4 h-64 w-64 rounded-full bg-blue-600/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 right-1/4 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
 
-      <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
-        <h3 className="mb-3 text-sm font-semibold text-zinc-500">
-          실시간 인기 키워드 (뉴스 기반)
-        </h3>
-        {trendingLoading ? (
-          <p className="text-sm text-zinc-400">불러오는 중...</p>
-        ) : trendingError ? (
-          <p className="text-sm text-red-600 dark:text-red-400">{trendingError}</p>
-        ) : trendingKeywords.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {trendingKeywords.map((tk, i) => (
+        <div className="relative flex flex-col items-center">
+          <h1 className="text-2xl font-bold leading-tight text-white sm:text-3xl">
+            네이버·구글·유튜브를 한 번에 보는
+            <br />
+            가장 쉬운{" "}
+            <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
+              키워드 데이터 분석 툴
+            </span>
+          </h1>
+          <p className="mt-4 max-w-xl text-sm text-zinc-400 sm:text-base">
+            실시간 검색 트렌드로{" "}
+            <span className="font-medium text-zinc-200">검색량·경쟁 강도·인기 이슈</span>
+            를 한눈에 파악하고, 콘텐츠 아이디어를 빠르게 찾아보세요.
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-8 w-full max-w-xl">
+            <div className="flex items-center gap-2 rounded-full bg-white py-2 pl-6 pr-2 shadow-lg">
+              <input
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder="분석할 키워드를 입력하세요"
+                className="flex-1 bg-transparent text-sm text-black outline-none placeholder:text-zinc-400 sm:text-base"
+              />
               <button
-                key={tk.keyword}
-                type="button"
-                onClick={() => handleRelatedClick(tk.keyword)}
-                className="rounded-full border border-black/[.12] px-3 py-1 text-xs transition-colors hover:bg-black/[.04] dark:border-white/[.16] dark:hover:bg-white/[.06]"
+                type="submit"
+                disabled={loading}
+                aria-label="검색"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-950 text-white transition-colors hover:bg-zinc-800 disabled:opacity-50"
               >
-                {i + 1}. {tk.keyword}
+                {loading ? (
+                  <span className="text-xs">···</span>
+                ) : (
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M21 21l-4.3-4.3" />
+                  </svg>
+                )}
               </button>
-            ))}
+            </div>
+          </form>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <span className="text-sm text-amber-400">🔥 실시간 인기 키워드</span>
+            {trendingLoading ? (
+              <span className="text-sm text-zinc-500">불러오는 중...</span>
+            ) : trendingError ? (
+              <span className="text-sm text-zinc-500">{trendingError}</span>
+            ) : (
+              trendingKeywords.slice(0, 5).map((tk) => (
+                <button
+                  key={tk.keyword}
+                  type="button"
+                  onClick={() => handleRelatedClick(tk.keyword)}
+                  className="rounded-full border border-white/[.15] bg-white/[.06] px-3 py-1 text-xs text-zinc-200 transition-colors hover:bg-white/[.12]"
+                >
+                  #{tk.keyword}
+                </button>
+              ))
+            )}
           </div>
-        ) : (
-          <p className="text-sm text-zinc-400">데이터 없음</p>
-        )}
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -204,24 +298,32 @@ export function SearchPanel() {
           <div className="flex flex-1 flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
-                <h3 className="mb-3 text-sm font-semibold text-zinc-500">
-                  네이버 월간 검색량
+                <h3 className="mb-4 text-sm font-semibold text-zinc-500">
+                  월간 검색량
                 </h3>
                 {result.naver ? (
-                  <dl className="flex flex-col gap-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-zinc-500">PC</dt>
-                      <dd className="font-medium">
-                        {numberFormat.format(result.naver.pcCount)}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-zinc-500">모바일</dt>
-                      <dd className="font-medium">
-                        {numberFormat.format(result.naver.mobileCount)}
-                      </dd>
-                    </div>
-                  </dl>
+                  <div className="grid grid-cols-3 gap-3">
+                    <StatCard
+                      icon="pc"
+                      color="bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400"
+                      label="PC"
+                      value={numberFormat.format(result.naver.pcCount)}
+                    />
+                    <StatCard
+                      icon="mobile"
+                      color="bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-400"
+                      label="모바일"
+                      value={numberFormat.format(result.naver.mobileCount)}
+                    />
+                    <StatCard
+                      icon="sum"
+                      color="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                      label="합계"
+                      value={numberFormat.format(
+                        result.naver.pcCount + result.naver.mobileCount,
+                      )}
+                    />
+                  </div>
                 ) : (
                   <p className="text-sm text-zinc-400">
                     {result.naverError ? "조회 실패" : "데이터 없음"}
@@ -230,16 +332,31 @@ export function SearchPanel() {
               </div>
 
               <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
-                <h3 className="mb-3 text-sm font-semibold text-zinc-500">
-                  구글 월평균 검색량
+                <h3 className="mb-4 text-sm font-semibold text-zinc-500">
+                  월간 콘텐츠 발행량 / 구글 검색량
                 </h3>
-                {result.google ? (
-                  <p className="text-sm font-medium">
-                    {numberFormat.format(result.google.avgMonthlySearches)}
-                  </p>
-                ) : (
-                  <p className="text-sm text-zinc-400">Google Ads 승인 심사중</p>
-                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <StatCard
+                    icon="blog"
+                    color="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+                    label="블로그"
+                    value={
+                      result.blogCount !== null
+                        ? numberFormat.format(result.blogCount)
+                        : "조회 실패"
+                    }
+                  />
+                  <StatCard
+                    icon="google"
+                    color="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+                    label="구글 월평균"
+                    value={
+                      result.google
+                        ? numberFormat.format(result.google.avgMonthlySearches)
+                        : "승인 심사중"
+                    }
+                  />
+                </div>
               </div>
             </div>
 
@@ -292,13 +409,60 @@ export function SearchPanel() {
               )}
             </div>
 
+            <div className="overflow-hidden rounded-lg border border-black/[.08] dark:border-white/[.12]">
+              <h3 className="border-b border-black/[.08] px-4 py-3 text-sm font-semibold text-zinc-500 dark:border-white/[.12]">
+                연관 키워드{" "}
+                {result.naver && (
+                  <span className="font-normal text-zinc-400">
+                    ({result.naver.relatedKeywords.length}개)
+                  </span>
+                )}
+              </h3>
+              {result.naver && result.naver.relatedKeywords.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-black/[.08] text-left text-xs text-zinc-500 dark:border-white/[.12]">
+                        <th className="px-4 py-2 font-medium">키워드</th>
+                        <th className="px-4 py-2 text-right font-medium">PC</th>
+                        <th className="px-4 py-2 text-right font-medium">모바일</th>
+                        <th className="px-4 py-2 text-right font-medium">합계</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.naver.relatedKeywords.map((rk) => (
+                        <tr
+                          key={rk.keyword}
+                          onClick={() => handleRelatedClick(rk.keyword)}
+                          className="cursor-pointer border-b border-black/[.05] last:border-b-0 hover:bg-black/[.03] dark:border-white/[.06] dark:hover:bg-white/[.04]"
+                        >
+                          <td className="px-4 py-2.5 font-medium">{rk.keyword}</td>
+                          <td className="px-4 py-2.5 text-right text-zinc-500">
+                            {numberFormat.format(rk.pcCount)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-zinc-500">
+                            {numberFormat.format(rk.mobileCount)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-medium">
+                            {numberFormat.format(rk.pcCount + rk.mobileCount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="px-4 py-4 text-sm text-zinc-400">연관 검색어 없음</p>
+              )}
+            </div>
           </div>
 
           <KeywordSidebar
             suggestions={suggestions}
             suggestLoading={suggestLoading}
-            relatedKeywords={result.naver?.relatedKeywords ?? []}
+            relatedKeywords={[]}
             onSelect={handleRelatedClick}
+            showRelated={false}
           />
         </div>
       )}

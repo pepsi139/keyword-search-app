@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getNaverSearchVolume } from "@/lib/naver";
 import { getGoogleSearchVolume } from "@/lib/google-ads";
+import { getNaverBlogCount } from "@/lib/naver-blog";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -20,9 +21,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "키워드를 입력해주세요." }, { status: 400 });
   }
 
-  const [naverResult, googleResult] = await Promise.allSettled([
+  const [naverResult, googleResult, blogResult] = await Promise.allSettled([
     getNaverSearchVolume(keyword),
     getGoogleSearchVolume(keyword),
+    getNaverBlogCount(keyword),
   ]);
 
   return NextResponse.json({
@@ -30,5 +32,6 @@ export async function POST(request: Request) {
     naver: naverResult.status === "fulfilled" ? naverResult.value : null,
     naverError: naverResult.status === "rejected" ? String(naverResult.reason) : null,
     google: googleResult.status === "fulfilled" ? googleResult.value : null,
+    blogCount: blogResult.status === "fulfilled" ? blogResult.value : null,
   });
 }
