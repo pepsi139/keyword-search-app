@@ -91,6 +91,14 @@ const PERIODS = [
 
 const numberFormat = new Intl.NumberFormat("ko-KR");
 
+function getCompetitionLevel(blogCount: number | null, totalSearch: number) {
+  if (blogCount === null || totalSearch <= 0) return null;
+  const ratio = blogCount / totalSearch;
+  if (ratio < 30) return { label: "낮음", color: "text-emerald-600 dark:text-emerald-400" };
+  if (ratio < 150) return { label: "보통", color: "text-amber-600 dark:text-amber-400" };
+  return { label: "높음", color: "text-red-600 dark:text-red-400" };
+}
+
 export function SearchPanel() {
   const [keyword, setKeyword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -106,6 +114,8 @@ export function SearchPanel() {
 
   const [suggestions, setSuggestions] = useState<string[] | null>(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
+
+  const [momChange, setMomChange] = useState<number | null>(null);
 
   const [trendingKeywords, setTrendingKeywords] = useState<TrendingKeyword[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
@@ -155,6 +165,28 @@ export function SearchPanel() {
     }
   }
 
+  async function fetchMomChange(term: string) {
+    setMomChange(null);
+    try {
+      const res = await fetch("/api/trend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyword: term, period: "month" }),
+      });
+      const data = await res.json();
+      const series: TrendPoint[] | undefined = res.ok ? data.naver : undefined;
+      if (series && series.length >= 2) {
+        const prev = series[series.length - 2].ratio;
+        const last = series[series.length - 1].ratio;
+        if (prev > 0) {
+          setMomChange(((last - prev) / prev) * 100);
+        }
+      }
+    } catch {
+      // 조용히 무시 — 지난달 대비는 부가 정보라 실패해도 화면을 막지 않음
+    }
+  }
+
   async function fetchSuggestions(term: string) {
     setSuggestLoading(true);
     try {
@@ -192,6 +224,7 @@ export function SearchPanel() {
         setResult(data);
         fetchTrend(term, period);
         fetchSuggestions(term);
+        fetchMomChange(term);
       }
     } catch {
       setError("네트워크 오류가 발생했습니다.");
@@ -360,6 +393,49 @@ export function SearchPanel() {
               </div>
             </div>
 
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
+                <h3 className="mb-2 text-sm font-semibold text-zinc-500">지난달 대비</h3>
+                {momChange === null ? (
+                  <p className="text-sm text-zinc-400">계산 중이거나 데이터 부족</p>
+                ) : (
+                  <p
+                    className={`text-lg font-bold ${
+                      momChange >= 0
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-blue-600 dark:text-blue-400"
+                    }`}
+                  >
+                    {momChange >= 0 ? "+" : ""}
+                    {momChange.toFixed(1)}%
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-zinc-400">
+                  네이버 상대 관심도 기준 (절대 검색량 변화율과는 다를 수 있음)
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
+                <h3 className="mb-2 text-sm font-semibold text-zinc-500">경쟁도</h3>
+                {(() => {
+                  const level = result.naver
+                    ? getCompetitionLevel(
+                        result.blogCount,
+                        result.naver.pcCount + result.naver.mobileCount,
+                      )
+                    : null;
+                  return level ? (
+                    <p className={`text-lg font-bold ${level.color}`}>{level.label}</p>
+                  ) : (
+                    <p className="text-sm text-zinc-400">데이터 부족</p>
+                  );
+                })()}
+                <p className="mt-1 text-xs text-zinc-400">
+                  블로그 발행량 대비 검색량 기준 콘텐츠 포화도 (광고 경쟁도 아님)
+                </p>
+              </div>
+            </div>
+
             <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-zinc-500">
@@ -455,6 +531,32 @@ export function SearchPanel() {
                 </div>
               ) : (
                 <p className="px-4 py-4 text-sm text-zinc-400">연관 검색어 없음</p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
+              <h3 className="mb-3 text-sm font-semibold text-zinc-500">
+                추천 키워드 (유튜브 인기 검색 기준)
+              </h3>
+              {suggestLoading ? (
+                <p className="text-sm text-zinc-400">불러오는 중...</p>
+              ) : suggestions && suggestions.length > 0 ? (
+                <ul className="flex flex-col gap-2">
+                  {suggestions.slice(0, 3).map((s) => (
+                    <li key={s}>
+                      <button
+                        type="button"
+                        onClick={() => handleRelatedClick(s)}
+                        className="flex items-center gap-2 text-left text-sm transition-colors hover:text-blue-600 dark:hover:text-blue-400"
+                      >
+                        <span className="text-emerald-500">✓</span>
+                        {s}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-zinc-400">데이터 없음</p>
               )}
             </div>
           </div>
