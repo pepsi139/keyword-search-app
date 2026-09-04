@@ -383,30 +383,32 @@ export function SearchPanel() {
                 </div>
               </div>
 
-              {trendLoading ? (
-                <p className="text-sm text-zinc-400">불러오는 중...</p>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <div>
-                    <p className="mb-1 text-xs text-zinc-500">네이버</p>
-                    {trendError ? (
-                      <p className="text-sm text-red-600 dark:text-red-400">{trendError}</p>
-                    ) : (
-                      <TrendChart data={naverTrend ?? []} />
-                    )}
-                  </div>
-                  <div>
-                    <p className="mb-1 text-xs text-zinc-500">구글 (비공식, 불안정할 수 있음)</p>
-                    {googleTrendError ? (
-                      <p className="text-sm text-red-600 dark:text-red-400">
-                        {googleTrendError}
-                      </p>
-                    ) : (
-                      <TrendChart data={googleTrend ?? []} />
-                    )}
-                  </div>
+              <div
+                className="flex flex-col gap-4"
+                style={{
+                  opacity: trendLoading ? 0.5 : 1,
+                  transition: "opacity 0.25s ease",
+                }}
+              >
+                <div>
+                  <p className="mb-1 text-xs text-zinc-500">네이버</p>
+                  {trendError ? (
+                    <p className="text-sm text-red-600 dark:text-red-400">{trendError}</p>
+                  ) : (
+                    <TrendChart data={naverTrend ?? []} />
+                  )}
                 </div>
-              )}
+                <div>
+                  <p className="mb-1 text-xs text-zinc-500">구글 (비공식, 불안정할 수 있음)</p>
+                  {googleTrendError ? (
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      {googleTrendError}
+                    </p>
+                  ) : (
+                    <TrendChart data={googleTrend ?? []} />
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="overflow-hidden rounded-lg border border-black/[.08] dark:border-white/[.12]">
