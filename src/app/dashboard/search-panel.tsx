@@ -6,6 +6,28 @@ import { KeywordSidebar } from "./keyword-sidebar";
 
 type TrendingKeyword = { keyword: string; count: number };
 
+const RECENT_SEARCHES_KEY = "kr_keyword_recent_searches";
+
+function loadRecentSearches(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_SEARCHES_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentSearch(term: string) {
+  try {
+    const current = loadRecentSearches().filter((t) => t !== term);
+    const next = [term, ...current].slice(0, 6);
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+    return next;
+  } catch {
+    return [];
+  }
+}
+
 type RelatedKeyword = { keyword: string; pcCount: number; mobileCount: number };
 type TrendPoint = { period: string; ratio: number };
 
@@ -121,6 +143,13 @@ export function SearchPanel() {
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [trendingError, setTrendingError] = useState<string | null>(null);
 
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+
+  useEffect(() => {
+    setRecentSearches(loadRecentSearches());
+  }, []);
+
   useEffect(() => {
     async function loadTrendingKeywords() {
       try {
@@ -207,6 +236,7 @@ export function SearchPanel() {
 
   async function runSearch(term: string) {
     if (!term.trim()) return;
+    setShowAutocomplete(false);
 
     setLoading(true);
     setError(null);
@@ -225,6 +255,7 @@ export function SearchPanel() {
         fetchTrend(term, period);
         fetchSuggestions(term);
         fetchMomChange(term);
+        setRecentSearches(saveRecentSearch(term));
       }
     } catch {
       setError("네트워크 오류가 발생했습니다.");
@@ -243,6 +274,10 @@ export function SearchPanel() {
     runSearch(term);
   }
 
+  const autocompleteMatches = recentSearches.filter(
+    (s) => keyword.trim() && s !== keyword.trim() && s.toLowerCase().includes(keyword.trim().toLowerCase()),
+  );
+
   function handlePeriodClick(id: string) {
     setPeriod(id);
     if (result) fetchTrend(result.keyword, id);
@@ -250,38 +285,38 @@ export function SearchPanel() {
 
   return (
     <div className="flex w-full max-w-5xl flex-col gap-6">
-      <div className="relative overflow-hidden rounded-2xl bg-zinc-950 px-6 py-14 text-center sm:px-12 sm:py-16">
-        <div className="pointer-events-none absolute -top-24 left-1/4 h-64 w-64 rounded-full bg-blue-600/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 right-1/4 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
-
-        <div className="relative flex flex-col items-center">
-          <h1 className="text-2xl font-bold leading-tight text-white sm:text-3xl">
+      <div className="rounded-2xl border border-black/[.08] px-6 py-14 text-center dark:border-white/[.12] sm:px-12 sm:py-16">
+        <div className="flex flex-col items-center">
+          <h1 className="text-2xl font-bold leading-tight text-zinc-900 dark:text-zinc-50 sm:text-3xl">
             네이버·구글·유튜브를 한 번에 보는
             <br />
             가장 쉬운{" "}
-            <span className="bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">
-              키워드 데이터 분석 툴
-            </span>
+            <span className="text-blue-600 dark:text-blue-400">키워드 데이터 분석 툴</span>
           </h1>
-          <p className="mt-4 max-w-xl text-sm text-zinc-400 sm:text-base">
+          <p className="mt-4 max-w-xl text-sm text-zinc-600 dark:text-zinc-400 sm:text-base">
             실시간 검색 트렌드로{" "}
-            <span className="font-medium text-zinc-200">검색량·경쟁 강도·인기 이슈</span>
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">검색량·경쟁 강도·인기 이슈</span>
             를 한눈에 파악하고, 콘텐츠 아이디어를 빠르게 찾아보세요.
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-8 w-full max-w-xl">
-            <div className="flex items-center gap-2 rounded-full bg-white py-2 pl-6 pr-2 shadow-lg">
+          <form onSubmit={handleSubmit} className="relative mt-8 w-full max-w-xl">
+            <div className="flex items-center gap-2 rounded-full border border-black/[.12] bg-white py-2 pl-6 pr-2 shadow-sm dark:border-white/[.16] dark:bg-zinc-900">
               <input
                 value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setShowAutocomplete(true);
+                }}
+                onFocus={() => setShowAutocomplete(true)}
+                onBlur={() => setTimeout(() => setShowAutocomplete(false), 150)}
                 placeholder="분석할 키워드를 입력하세요"
-                className="flex-1 bg-transparent text-sm text-black outline-none placeholder:text-zinc-400 sm:text-base"
+                className="flex-1 bg-transparent text-sm text-black outline-none placeholder:text-zinc-400 dark:text-white sm:text-base"
               />
               <button
                 type="submit"
                 disabled={loading}
                 aria-label="검색"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-950 text-white transition-colors hover:bg-zinc-800 disabled:opacity-50"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-colors hover:bg-[#383838] disabled:opacity-50 dark:hover:bg-[#ccc]"
               >
                 {loading ? (
                   <span className="text-xs">···</span>
@@ -300,10 +335,44 @@ export function SearchPanel() {
                 )}
               </button>
             </div>
+
+            {showAutocomplete && autocompleteMatches.length > 0 && (
+              <ul className="absolute left-0 right-0 top-full z-10 mt-2 overflow-hidden rounded-lg border border-black/[.08] bg-white text-left shadow-lg dark:border-white/[.12] dark:bg-zinc-900">
+                {autocompleteMatches.map((s) => (
+                  <li key={s}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleRelatedClick(s)}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/[.06]"
+                    >
+                      <span className="text-zinc-400">🕑</span>
+                      {s}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </form>
 
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            <span className="text-sm text-amber-400">🔥 실시간 인기 키워드</span>
+          {recentSearches.length > 0 && (
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              <span className="text-sm text-zinc-500">최근 검색어</span>
+              {recentSearches.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => handleRelatedClick(s)}
+                  className="rounded-full border border-black/[.12] px-3 py-1 text-xs text-zinc-600 transition-colors hover:bg-black/[.04] dark:border-white/[.16] dark:text-zinc-300 dark:hover:bg-white/[.06]"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+            <span className="text-sm text-amber-600 dark:text-amber-400">🔥 실시간 인기 키워드</span>
             {trendingLoading ? (
               <span className="text-sm text-zinc-500">불러오는 중...</span>
             ) : trendingError ? (
@@ -314,7 +383,7 @@ export function SearchPanel() {
                   key={tk.keyword}
                   type="button"
                   onClick={() => handleRelatedClick(tk.keyword)}
-                  className="rounded-full border border-white/[.15] bg-white/[.06] px-3 py-1 text-xs text-zinc-200 transition-colors hover:bg-white/[.12]"
+                  className="rounded-full border border-black/[.12] px-3 py-1 text-xs text-zinc-600 transition-colors hover:bg-black/[.04] dark:border-white/[.16] dark:text-zinc-300 dark:hover:bg-white/[.06]"
                 >
                   #{tk.keyword}
                 </button>

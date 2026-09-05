@@ -243,6 +243,43 @@ export async function getYoutubeStats(keyword: string): Promise<YoutubeStats> {
   return { totalViews, topVideos, latestVideos, competitionCount };
 }
 
+type YoutubeChannelDetailItem = {
+  id: string;
+  snippet: { title: string; thumbnails: { medium?: { url: string }; default?: { url: string } } };
+  statistics: { subscriberCount?: string; viewCount?: string; videoCount?: string };
+};
+
+function toChannelInfo(item: YoutubeChannelDetailItem): ChannelInfo {
+  return {
+    channelId: item.id,
+    title: item.snippet.title,
+    thumbnailUrl: item.snippet.thumbnails.medium?.url ?? item.snippet.thumbnails.default?.url ?? "",
+    subscriberCount: Number(item.statistics.subscriberCount ?? 0),
+    viewCount: Number(item.statistics.viewCount ?? 0),
+    videoCount: Number(item.statistics.videoCount ?? 0),
+  };
+}
+
+async function fetchChannelByParam(param: "id" | "forHandle" | "forUsername", value: string): Promise<ChannelInfo | null> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) {
+    throw new Error("YouTube API 키가 설정되지 않았습니다.");
+  }
+
+  const channelUrl = new URL("https://www.googleapis.com/youtube/v3/channels");
+  channelUrl.searchParams.set("part", "snippet,statistics");
+  channelUrl.searchParams.set(param, value);
+  channelUrl.searchParams.set("key", apiKey);
+
+  const channelRes = await fetch(channelUrl);
+  if (!channelRes.ok) {
+    throw new Error(`YouTube 채널 API 오류: ${channelRes.status}`);
+  }
+  const channelData = (await channelRes.json()) as { items?: YoutubeChannelDetailItem[] };
+  const item = channelData.items?.[0];
+  return item ? toChannelInfo(item) : null;
+}
+
 export async function getChannelInfo(query: string): Promise<ChannelInfo | null> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
@@ -266,33 +303,58 @@ export async function getChannelInfo(query: string): Promise<ChannelInfo | null>
   const channelId = searchData.items?.[0]?.id.channelId;
   if (!channelId) return null;
 
-  const channelUrl = new URL("https://www.googleapis.com/youtube/v3/channels");
-  channelUrl.searchParams.set("part", "snippet,statistics");
-  channelUrl.searchParams.set("id", channelId);
-  channelUrl.searchParams.set("key", apiKey);
+  return fetchChannelByParam("id", channelId);
+}
 
-  const channelRes = await fetch(channelUrl);
-  if (!channelRes.ok) {
-    throw new Error(`YouTube 채널 API 오류: ${channelRes.status}`);
+export type ParsedChannelInput =
+  | { type: "id"; value: string }
+  | { type: "handle"; value: string }
+  | { type: "username"; value: string }
+  | { type: "search"; value: string };
+
+// 유튜브 채널 URL의 4가지 형태(/channel/ID, /@handle, /c/커스텀명, /user/아이디)를 구분한다.
+// URL이 아니면 null을 반환해 "이건 채널 입력이 아니라 일반 키워드"임을 알린다.
+export function parseChannelUrl(input: string): ParsedChannelInput | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  if (/^@[\w.-]+$/.test(trimmed)) {
+    return { type: "handle", value: trimmed };
   }
-  const channelData = (await channelRes.json()) as {
-    items?: {
-      id: string;
-      snippet: { title: string; thumbnails: { medium?: { url: string }; default?: { url: string } } };
-      statistics: { subscriberCount?: string; viewCount?: string; videoCount?: string };
-    }[];
-  };
-  const item = channelData.items?.[0];
-  if (!item) return null;
 
-  return {
-    channelId: item.id,
-    title: item.snippet.title,
-    thumbnailUrl: item.snippet.thumbnails.medium?.url ?? item.snippet.thumbnails.default?.url ?? "",
-    subscriberCount: Number(item.statistics.subscriberCount ?? 0),
-    viewCount: Number(item.statistics.viewCount ?? 0),
-    videoCount: Number(item.statistics.videoCount ?? 0),
-  };
+  if (!/youtube\.com|youtu\.be/i.test(trimmed)) return null;
+
+  try {
+    const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+    const path = url.pathname;
+
+    const channelMatch = path.match(/\/channel\/([\w-]+)/);
+    if (channelMatch) return { type: "id", value: channelMatch[1] };
+
+    const handleMatch = path.match(/\/(@[\w.-]+)/);
+    if (handleMatch) return { type: "handle", value: handleMatch[1] };
+
+    const userMatch = path.match(/\/user\/([\w-]+)/);
+    if (userMatch) return { type: "username", value: userMatch[1] };
+
+    const customMatch = path.match(/\/c\/([^/?]+)/);
+    if (customMatch) return { type: "search", value: decodeURIComponent(customMatch[1]) };
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// 채널 URL/핸들/이름을 모두 받아 채널 정보를 조회한다. 검색창의 스마트 입력 감지에 사용.
+export async function resolveChannel(input: string): Promise<ChannelInfo | null> {
+  const parsed = parseChannelUrl(input);
+  if (!parsed) return getChannelInfo(input);
+
+  if (parsed.type === "id") return fetchChannelByParam("id", parsed.value);
+  if (parsed.type === "handle") return fetchChannelByParam("forHandle", parsed.value);
+  if (parsed.type === "username") return fetchChannelByParam("forUsername", parsed.value);
+  return getChannelInfo(parsed.value);
 }
 
 export async function getTrendingVideos(): Promise<YoutubeVideo[]> {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getChannelInfo } from "@/lib/youtube";
+import { resolveChannel } from "@/lib/youtube";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const channel = await getChannelInfo(query);
+    const channel = await resolveChannel(query);
     if (!channel) {
       return NextResponse.json({ error: "채널을 찾을 수 없습니다." }, { status: 404 });
     }

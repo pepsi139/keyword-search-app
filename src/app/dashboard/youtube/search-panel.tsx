@@ -65,6 +65,20 @@ type YoutubeResult = {
   };
 };
 
+type ChannelInfo = {
+  channelId: string;
+  title: string;
+  thumbnailUrl: string;
+  subscriberCount: number;
+  viewCount: number;
+  videoCount: number;
+};
+
+function isChannelInput(value: string) {
+  const trimmed = value.trim();
+  return /^@[\w.-]+$/.test(trimmed) || /youtube\.com|youtu\.be/i.test(trimmed);
+}
+
 function getYoutubeCompetitionLevel(count: number) {
   if (count < 1000) return { label: "낮음", color: "text-emerald-600 dark:text-emerald-400" };
   if (count < 10000) return { label: "보통", color: "text-amber-600 dark:text-amber-400" };
@@ -88,6 +102,8 @@ export function YoutubeSearchPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<YoutubeResult | null>(null);
+  const [channelResult, setChannelResult] = useState<ChannelInfo | null>(null);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [watchList, setWatchList] = useState<WatchRow[]>([]);
   const watched = new Set(watchList.map((w) => w.video_id));
 
@@ -170,11 +186,43 @@ export function YoutubeSearchPanel() {
     }
   }
 
+  async function runChannelSearch(term: string) {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setChannelResult(null);
+    try {
+      const res = await fetch("/api/youtube-channel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: term }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "채널을 찾을 수 없습니다.");
+      } else {
+        setChannelResult(data.channel);
+        setRecentSearches(saveRecentSearch(term));
+      }
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function runSearch(term: string) {
     if (!term.trim()) return;
+    setShowAutocomplete(false);
+
+    if (isChannelInput(term)) {
+      runChannelSearch(term.trim());
+      return;
+    }
 
     setLoading(true);
     setError(null);
+    setChannelResult(null);
     try {
       const res = await fetch("/api/youtube-search", {
         method: "POST",
@@ -202,6 +250,15 @@ export function YoutubeSearchPanel() {
     e.preventDefault();
     runSearch(keyword);
   }
+
+  function selectAutocomplete(term: string) {
+    setKeyword(term);
+    runSearch(term);
+  }
+
+  const autocompleteMatches = recentSearches.filter(
+    (s) => keyword.trim() && s !== keyword.trim() && s.toLowerCase().includes(keyword.trim().toLowerCase()),
+  );
 
   function handleSidebarSelect(term: string) {
     setKeyword(term);
@@ -251,64 +308,124 @@ export function YoutubeSearchPanel() {
 
   return (
     <div className="flex w-full max-w-5xl flex-col gap-6">
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          placeholder="검색할 키워드를 입력하세요"
-          className="flex-1 rounded-md border border-black/[.12] bg-transparent px-4 py-2.5 text-sm outline-none focus:border-black dark:border-white/[.16] dark:focus:border-white"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-md bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-50 dark:hover:bg-[#ccc]"
-        >
-          {loading ? "검색 중..." : "검색"}
-        </button>
-      </form>
+      <div className="rounded-2xl border border-black/[.08] px-6 py-14 text-center dark:border-white/[.12] sm:px-12 sm:py-16">
+        <div className="flex flex-col items-center">
+          <h1 className="text-2xl font-bold leading-tight text-zinc-900 dark:text-zinc-50 sm:text-3xl">
+            유튜브 조회수와 채널 정보를
+            <br />한 번에 확인하는{" "}
+            <span className="text-red-600 dark:text-red-400">유튜브 리서치 툴</span>
+          </h1>
+          <p className="mt-4 max-w-xl text-sm text-zinc-600 dark:text-zinc-400 sm:text-base">
+            키워드를 입력해 인기 영상과 조회수를 분석하거나,{" "}
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">채널 URL</span>을 붙여넣어 채널 정보를
+            바로 확인하세요.
+          </p>
 
-      <ChannelCompare />
-
-      {!result && !loading && (
-        <div className="flex flex-col gap-3">
-          {recentSearches.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-zinc-500">최근 검색어</span>
-              {recentSearches.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => {
-                    setKeyword(s);
-                    runSearch(s);
-                  }}
-                  className="rounded-full border border-black/[.12] px-3 py-1 text-xs transition-colors hover:bg-black/[.04] dark:border-white/[.16] dark:hover:bg-white/[.06]"
-                >
-                  {s}
-                </button>
-              ))}
+          <form onSubmit={handleSubmit} className="relative mt-8 w-full max-w-xl">
+            <div className="flex items-center gap-2 rounded-full border border-black/[.12] bg-white py-2 pl-6 pr-2 shadow-sm dark:border-white/[.16] dark:bg-zinc-900">
+              <input
+                value={keyword}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setShowAutocomplete(true);
+                }}
+                onFocus={() => setShowAutocomplete(true)}
+                onBlur={() => setTimeout(() => setShowAutocomplete(false), 150)}
+                placeholder="키워드 또는 채널 URL을 입력하세요"
+                className="flex-1 bg-transparent text-sm text-black outline-none placeholder:text-zinc-400 dark:text-white sm:text-base"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                aria-label="검색"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-colors hover:bg-[#383838] disabled:opacity-50 dark:hover:bg-[#ccc]"
+              >
+                {loading ? (
+                  <span className="text-xs">···</span>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M21 21l-4.3-4.3" />
+                  </svg>
+                )}
+              </button>
             </div>
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-zinc-500">이런 키워드를 검색해보세요</span>
+
+            {showAutocomplete && autocompleteMatches.length > 0 && (
+              <ul className="absolute left-0 right-0 top-full z-10 mt-2 overflow-hidden rounded-lg border border-black/[.08] bg-white text-left shadow-lg dark:border-white/[.12] dark:bg-zinc-900">
+                {autocompleteMatches.map((s) => (
+                  <li key={s}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectAutocomplete(s)}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/[.06]"
+                    >
+                      <span className="text-zinc-400">🕑</span>
+                      {s}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </form>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            {recentSearches.length > 0 && (
+              <>
+                <span className="text-sm text-zinc-500">최근 검색어</span>
+                {recentSearches.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => selectAutocomplete(s)}
+                    className="rounded-full border border-black/[.12] px-3 py-1 text-xs text-zinc-600 transition-colors hover:bg-black/[.04] dark:border-white/[.16] dark:text-zinc-300 dark:hover:bg-white/[.06]"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+            <span className="text-sm text-zinc-500">이런 키워드를 검색해보세요</span>
             {EXAMPLE_KEYWORDS.map((s) => (
               <button
                 key={s}
                 type="button"
-                onClick={() => {
-                  setKeyword(s);
-                  runSearch(s);
-                }}
-                className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-600 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20"
+                onClick={() => selectAutocomplete(s)}
+                className="rounded-full border border-black/[.12] px-3 py-1 text-xs text-zinc-600 transition-colors hover:bg-black/[.04] dark:border-white/[.16] dark:text-zinc-300 dark:hover:bg-white/[.06]"
               >
                 {s}
               </button>
             ))}
           </div>
         </div>
+      </div>
+
+      <ChannelCompare />
+
+      {channelResult && !loading && (
+        <div className="flex items-center gap-4 rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
+          {channelResult.thumbnailUrl && (
+            <img
+              src={channelResult.thumbnailUrl}
+              alt={channelResult.title}
+              className="h-16 w-16 shrink-0 rounded-full"
+            />
+          )}
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-semibold">{channelResult.title}</h2>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-500">
+              <span>구독자 {numberFormat.format(channelResult.subscriberCount)}</span>
+              <span>총 조회수 {numberFormat.format(channelResult.viewCount)}</span>
+              <span>영상 수 {numberFormat.format(channelResult.videoCount)}</span>
+            </div>
+          </div>
+        </div>
       )}
 
-      {loading && !result && (
+      {loading && !result && !channelResult && (
         <div className="flex flex-col gap-3">
           <VideoCardSkeleton />
           <VideoCardSkeleton />
