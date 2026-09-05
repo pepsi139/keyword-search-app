@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./actions";
 import { NavLinks } from "./nav-links";
+import { ThemeToggle } from "../theme-toggle";
 
 export default async function DashboardLayout({
   children,
@@ -42,14 +43,17 @@ export default async function DashboardLayout({
           </div>
           <NavLinks />
         </div>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="rounded-md border border-black/[.12] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.16] dark:hover:bg-white/[.06]"
-          >
-            로그아웃
-          </button>
-        </form>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="rounded-md border border-black/[.12] px-4 py-1.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/[.16] dark:hover:bg-white/[.06]"
+            >
+              로그아웃
+            </button>
+          </form>
+        </div>
       </nav>
       <main className="flex flex-1 flex-col items-center gap-10 px-6 py-12">
         {children}

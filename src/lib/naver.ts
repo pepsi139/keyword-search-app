@@ -86,3 +86,72 @@ export async function getNaverSearchVolume(
     relatedKeywords,
   };
 }
+
+export type VolumeResult = { pcCount: number; mobileCount: number };
+
+async function fetchVolumeChunk(keywords: string[]): Promise<Map<string, VolumeResult>> {
+  const apiKey = process.env.NAVER_ADS_ACCESS_LICENSE;
+  const secretKey = process.env.NAVER_ADS_SECRET_KEY;
+  const customerId = process.env.NAVER_ADS_CUSTOMER_ID;
+
+  if (!apiKey || !secretKey || !customerId) {
+    throw new Error("네이버 검색광고 API 키가 설정되지 않았습니다.");
+  }
+
+  const timestamp = Date.now().toString();
+  const signature = generateSignature(timestamp, secretKey);
+  const hint = keywords.map((k) => k.replace(/\s/g, "")).join(",");
+
+  const url = `${BASE_URL}${PATH}?hintKeywords=${encodeURIComponent(hint)}&showDetail=1`;
+
+  const res = await fetch(url, {
+    headers: {
+      "X-Timestamp": timestamp,
+      "X-API-KEY": apiKey,
+      "X-Customer": customerId,
+      "X-Signature": signature,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`네이버 API 오류: ${res.status}`);
+  }
+
+  const data = (await res.json()) as { keywordList?: NaverKeywordItem[] };
+  const map = new Map<string, VolumeResult>();
+  for (const item of data.keywordList ?? []) {
+    map.set(item.relKeyword, {
+      pcCount: parseCount(item.monthlyPcQcCnt),
+      mobileCount: parseCount(item.monthlyMobileQcCnt),
+    });
+  }
+  return map;
+}
+
+export async function getNaverSearchVolumeBatch(
+  keywords: string[],
+): Promise<Map<string, VolumeResult>> {
+  const normalizedToOriginal = new Map<string, string>();
+  for (const kw of keywords) {
+    normalizedToOriginal.set(kw.replace(/\s/g, ""), kw);
+  }
+  const normalizedKeywords = [...normalizedToOriginal.keys()];
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < normalizedKeywords.length; i += 5) {
+    chunks.push(normalizedKeywords.slice(i, i + 5));
+  }
+
+  const result = new Map<string, VolumeResult>();
+  for (const chunk of chunks) {
+    const chunkResult = await fetchVolumeChunk(chunk);
+    for (const [normalized, volume] of chunkResult) {
+      const original = normalizedToOriginal.get(normalized);
+      if (original) result.set(original, volume);
+    }
+    // 검색광고 API 초당 호출 제한을 피하기 위한 짧은 간격
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
+  return result;
+}

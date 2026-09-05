@@ -22,6 +22,16 @@ export type YoutubeStats = {
   totalViews: number;
   topVideos: YoutubeVideo[];
   latestVideos: YoutubeVideo[];
+  competitionCount: number;
+};
+
+export type ChannelInfo = {
+  channelId: string;
+  title: string;
+  thumbnailUrl: string;
+  subscriberCount: number;
+  viewCount: number;
+  videoCount: number;
 };
 
 type YoutubeSearchItem = { id: { videoId?: string } };
@@ -128,7 +138,7 @@ async function searchVideoIds(
   keyword: string,
   order: "relevance" | "date",
   maxResults: number,
-): Promise<string[]> {
+): Promise<{ ids: string[]; totalResults: number }> {
   const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
   searchUrl.searchParams.set("part", "id");
   searchUrl.searchParams.set("q", keyword);
@@ -141,10 +151,14 @@ async function searchVideoIds(
   if (!res.ok) {
     throw new Error(`YouTube 검색 API 오류: ${res.status}`);
   }
-  const data = (await res.json()) as { items?: YoutubeSearchItem[] };
-  return (data.items ?? [])
+  const data = (await res.json()) as {
+    items?: YoutubeSearchItem[];
+    pageInfo?: { totalResults?: number };
+  };
+  const ids = (data.items ?? [])
     .map((item) => item.id.videoId)
     .filter((id): id is string => Boolean(id));
+  return { ids, totalResults: data.pageInfo?.totalResults ?? 0 };
 }
 
 export async function getYoutubeStats(keyword: string): Promise<YoutubeStats> {
@@ -153,15 +167,18 @@ export async function getYoutubeStats(keyword: string): Promise<YoutubeStats> {
     throw new Error("YouTube API 키가 설정되지 않았습니다.");
   }
 
-  const [topIds, latestIds] = await Promise.all([
+  const [topSearch, latestSearch] = await Promise.all([
     searchVideoIds(apiKey, keyword, "relevance", 5),
     searchVideoIds(apiKey, keyword, "date", 10),
   ]);
+  const topIds = topSearch.ids;
+  const latestIds = latestSearch.ids;
+  const competitionCount = topSearch.totalResults;
 
   const videoIds = [...new Set([...topIds, ...latestIds])];
 
   if (videoIds.length === 0) {
-    return { totalViews: 0, topVideos: [], latestVideos: [] };
+    return { totalViews: 0, topVideos: [], latestVideos: [], competitionCount };
   }
 
   const videosUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
@@ -223,7 +240,59 @@ export async function getYoutubeStats(keyword: string): Promise<YoutubeStats> {
   const latestVideos = latestIds.map((id) => videoMap.get(id)).filter((v): v is YoutubeVideo => Boolean(v));
   const totalViews = topVideos.reduce((sum, v) => sum + v.viewCount, 0);
 
-  return { totalViews, topVideos, latestVideos };
+  return { totalViews, topVideos, latestVideos, competitionCount };
+}
+
+export async function getChannelInfo(query: string): Promise<ChannelInfo | null> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) {
+    throw new Error("YouTube API 키가 설정되지 않았습니다.");
+  }
+
+  const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
+  searchUrl.searchParams.set("part", "snippet");
+  searchUrl.searchParams.set("q", query);
+  searchUrl.searchParams.set("type", "channel");
+  searchUrl.searchParams.set("maxResults", "1");
+  searchUrl.searchParams.set("key", apiKey);
+
+  const searchRes = await fetch(searchUrl);
+  if (!searchRes.ok) {
+    throw new Error(`YouTube 채널 검색 API 오류: ${searchRes.status}`);
+  }
+  const searchData = (await searchRes.json()) as {
+    items?: { id: { channelId?: string } }[];
+  };
+  const channelId = searchData.items?.[0]?.id.channelId;
+  if (!channelId) return null;
+
+  const channelUrl = new URL("https://www.googleapis.com/youtube/v3/channels");
+  channelUrl.searchParams.set("part", "snippet,statistics");
+  channelUrl.searchParams.set("id", channelId);
+  channelUrl.searchParams.set("key", apiKey);
+
+  const channelRes = await fetch(channelUrl);
+  if (!channelRes.ok) {
+    throw new Error(`YouTube 채널 API 오류: ${channelRes.status}`);
+  }
+  const channelData = (await channelRes.json()) as {
+    items?: {
+      id: string;
+      snippet: { title: string; thumbnails: { medium?: { url: string }; default?: { url: string } } };
+      statistics: { subscriberCount?: string; viewCount?: string; videoCount?: string };
+    }[];
+  };
+  const item = channelData.items?.[0];
+  if (!item) return null;
+
+  return {
+    channelId: item.id,
+    title: item.snippet.title,
+    thumbnailUrl: item.snippet.thumbnails.medium?.url ?? item.snippet.thumbnails.default?.url ?? "",
+    subscriberCount: Number(item.statistics.subscriberCount ?? 0),
+    viewCount: Number(item.statistics.viewCount ?? 0),
+    videoCount: Number(item.statistics.videoCount ?? 0),
+  };
 }
 
 export async function getTrendingVideos(): Promise<YoutubeVideo[]> {

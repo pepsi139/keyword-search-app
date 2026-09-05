@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { KeywordSidebar } from "../keyword-sidebar";
 import { VideoCard, type Video } from "./video-card";
 import { VideoCardSkeleton } from "./video-card-skeleton";
+import { ChannelCompare } from "./channel-compare";
 
 const RECENT_SEARCHES_KEY = "kr_youtube_recent_searches";
 const EXAMPLE_KEYWORDS = ["캠핑용품", "다이어트", "노트북 추천", "에어컨", "홈트레이닝"];
@@ -60,8 +61,15 @@ type YoutubeResult = {
     totalViews: number;
     topVideos: Video[];
     latestVideos: Video[];
+    competitionCount: number;
   };
 };
+
+function getYoutubeCompetitionLevel(count: number) {
+  if (count < 1000) return { label: "낮음", color: "text-emerald-600 dark:text-emerald-400" };
+  if (count < 10000) return { label: "보통", color: "text-amber-600 dark:text-amber-400" };
+  return { label: "높음", color: "text-red-600 dark:text-red-400" };
+}
 
 type RelatedKeyword = { keyword: string; pcCount: number; mobileCount: number };
 
@@ -259,6 +267,8 @@ export function YoutubeSearchPanel() {
         </button>
       </form>
 
+      <ChannelCompare />
+
       {!result && !loading && (
         <div className="flex flex-col gap-3">
           {recentSearches.length > 0 && (
@@ -377,13 +387,30 @@ export function YoutubeSearchPanel() {
           style={{ opacity: loading ? 0.5 : 1, transition: "opacity 0.25s ease" }}
         >
           <div className="flex flex-1 flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-zinc-500">
-                상위 {result.youtube.topVideos.length}개 영상 합계 조회수{" "}
-                <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                  {numberFormat.format(result.youtube.totalViews)}
-                </span>
-              </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-black/[.08] p-3 dark:border-white/[.12]">
+                <p className="text-xs text-zinc-500">
+                  상위 {result.youtube.topVideos.length}개 영상 합계 조회수
+                </p>
+                <p className="text-lg font-bold">{numberFormat.format(result.youtube.totalViews)}</p>
+              </div>
+              <div className="rounded-lg border border-black/[.08] p-3 dark:border-white/[.12]" title="해당 키워드로 검색되는 전체 영상 수를 기준으로 한 콘텐츠 경쟁 강도 (광고 입찰 경쟁도와는 다름)">
+                <p className="text-xs text-zinc-500">키워드 경쟁도 (검색 영상 수)</p>
+                {(() => {
+                  const level = getYoutubeCompetitionLevel(result.youtube.competitionCount);
+                  return (
+                    <p className={`text-lg font-bold ${level.color}`}>
+                      {level.label}
+                      <span className="ml-2 text-xs font-normal text-zinc-400">
+                        약 {numberFormat.format(result.youtube.competitionCount)}개
+                      </span>
+                    </p>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={() =>

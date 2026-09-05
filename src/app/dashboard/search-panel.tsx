@@ -497,38 +497,61 @@ export function SearchPanel() {
                 )}
               </h3>
               {result.naver && result.naver.relatedKeywords.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-black/[.08] text-left text-xs text-zinc-500 dark:border-white/[.12]">
-                        <th className="px-4 py-2 font-medium">키워드</th>
-                        <th className="px-4 py-2 text-right font-medium">PC</th>
-                        <th className="px-4 py-2 text-right font-medium">모바일</th>
-                        <th className="px-4 py-2 text-right font-medium">합계</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.naver.relatedKeywords.map((rk) => (
-                        <tr
-                          key={rk.keyword}
-                          onClick={() => handleRelatedClick(rk.keyword)}
-                          className="cursor-pointer border-b border-black/[.05] last:border-b-0 hover:bg-black/[.03] dark:border-white/[.06] dark:hover:bg-white/[.04]"
-                        >
-                          <td className="px-4 py-2.5 font-medium">{rk.keyword}</td>
-                          <td className="px-4 py-2.5 text-right text-zinc-500">
-                            {numberFormat.format(rk.pcCount)}
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-zinc-500">
-                            {numberFormat.format(rk.mobileCount)}
-                          </td>
-                          <td className="px-4 py-2.5 text-right font-medium">
-                            {numberFormat.format(rk.pcCount + rk.mobileCount)}
-                          </td>
+                <>
+                  <div className="hidden overflow-x-auto sm:block">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-black/[.08] text-left text-xs text-zinc-500 dark:border-white/[.12]">
+                          <th className="px-4 py-2 font-medium">키워드</th>
+                          <th className="px-4 py-2 text-right font-medium">PC</th>
+                          <th className="px-4 py-2 text-right font-medium">모바일</th>
+                          <th className="px-4 py-2 text-right font-medium">합계</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {result.naver.relatedKeywords.map((rk) => (
+                          <tr
+                            key={rk.keyword}
+                            onClick={() => handleRelatedClick(rk.keyword)}
+                            className="cursor-pointer border-b border-black/[.05] last:border-b-0 hover:bg-black/[.03] dark:border-white/[.06] dark:hover:bg-white/[.04]"
+                          >
+                            <td className="px-4 py-2.5 font-medium">{rk.keyword}</td>
+                            <td className="px-4 py-2.5 text-right text-zinc-500">
+                              {numberFormat.format(rk.pcCount)}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-zinc-500">
+                              {numberFormat.format(rk.mobileCount)}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-medium">
+                              {numberFormat.format(rk.pcCount + rk.mobileCount)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <ul className="flex flex-col divide-y divide-black/[.05] sm:hidden dark:divide-white/[.06]">
+                    {result.naver.relatedKeywords.map((rk) => (
+                      <li key={rk.keyword}>
+                        <button
+                          type="button"
+                          onClick={() => handleRelatedClick(rk.keyword)}
+                          className="flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors hover:bg-black/[.03] dark:hover:bg-white/[.04]"
+                        >
+                          <span className="font-medium">{rk.keyword}</span>
+                          <span className="flex items-center gap-3 text-xs text-zinc-500">
+                            <span>PC {numberFormat.format(rk.pcCount)}</span>
+                            <span>모바일 {numberFormat.format(rk.mobileCount)}</span>
+                            <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                              합계 {numberFormat.format(rk.pcCount + rk.mobileCount)}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               ) : (
                 <p className="px-4 py-4 text-sm text-zinc-400">연관 검색어 없음</p>
               )}

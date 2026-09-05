@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/dashboard", label: "키워드 검색량 비교" },
   { href: "/dashboard/youtube", label: "유튜브" },
+  { href: "/dashboard/category-keywords", label: "카테고리 대표 키워드" },
 ];
 
 export function NavLinks() {
