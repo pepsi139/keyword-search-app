@@ -64,6 +64,7 @@ export function CategoryKeywordPanel() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ResultData | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [minSearch, setMinSearch] = useState(0);
 
   const selectedGroup = DIRECTORY_GROUPS.find((g) => g.seq === groupSeq) ?? null;
   const selectedSubGroup = selectedGroup?.subGroups.find((s) => s.name === subGroupName) ?? null;
@@ -94,6 +95,7 @@ export function CategoryKeywordPanel() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setMinSearch(0);
     try {
       const res = await fetch("/api/category-keywords", {
         method: "POST",
@@ -125,6 +127,8 @@ export function CategoryKeywordPanel() {
         return b.freq * Math.log(b.totalSearch + 1) - a.freq * Math.log(a.totalSearch + 1);
       })
     : [];
+
+  const filteredKeywords = sortedKeywords.filter((k) => k.totalSearch >= minSearch);
 
   return (
     <div className="flex w-full max-w-5xl flex-col gap-6">
@@ -211,34 +215,61 @@ export function CategoryKeywordPanel() {
             </div>
             <button
               type="button"
-              onClick={() => downloadCsv(result.topic.name, sortedKeywords)}
-              disabled={sortedKeywords.length === 0}
+              onClick={() => downloadCsv(result.topic.name, filteredKeywords)}
+              disabled={filteredKeywords.length === 0}
               className="rounded-md border border-black/[.12] px-3 py-1.5 text-xs font-medium transition-colors hover:bg-black/[.04] disabled:opacity-50 dark:border-white/[.16] dark:hover:bg-white/[.06]"
             >
               CSV 다운로드
             </button>
           </div>
 
-          <div className="flex gap-1">
-            {SORT_OPTIONS.map((opt) => (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex gap-1">
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setSortKey(opt.id)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    sortKey === opt.id
+                      ? "bg-black/[.06] text-black dark:bg-white/[.1] dark:text-white"
+                      : "text-zinc-500 hover:bg-black/[.04] dark:text-zinc-400 dark:hover:bg-white/[.06]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <label className="flex items-center gap-1.5 text-xs text-zinc-500">
+              최소 검색량
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={minSearch}
+                onChange={(e) => setMinSearch(Math.max(0, Number(e.target.value) || 0))}
+                className="w-24 rounded-md border border-black/[.12] bg-transparent px-2 py-1 text-xs outline-none focus:border-black dark:border-white/[.16] dark:focus:border-white"
+              />
+              이상
+            </label>
+            {minSearch > 0 && (
               <button
-                key={opt.id}
                 type="button"
-                onClick={() => setSortKey(opt.id)}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  sortKey === opt.id
-                    ? "bg-black/[.06] text-black dark:bg-white/[.1] dark:text-white"
-                    : "text-zinc-500 hover:bg-black/[.04] dark:text-zinc-400 dark:hover:bg-white/[.06]"
-                }`}
+                onClick={() => setMinSearch(0)}
+                className="text-xs text-blue-600 hover:underline dark:text-blue-400"
               >
-                {opt.label}
+                초기화
               </button>
-            ))}
+            )}
+            <span className="text-xs text-zinc-400">
+              {filteredKeywords.length}개 표시 중 (전체 {result.keywords.length}개)
+            </span>
           </div>
 
-          {sortedKeywords.length === 0 ? (
+          {filteredKeywords.length === 0 ? (
             <p className="rounded-lg border border-black/[.08] p-4 text-sm text-zinc-400 dark:border-white/[.12]">
-              검색량 기준을 만족하는 대표 키워드를 찾지 못했습니다. 다른 주제를 선택해보세요.
+              조건을 만족하는 대표 키워드가 없습니다. 최소 검색량을 낮추거나 다른 주제를 선택해보세요.
             </p>
           ) : (
             <div className="overflow-hidden rounded-lg border border-black/[.08] dark:border-white/[.12]">
@@ -256,7 +287,7 @@ export function CategoryKeywordPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedKeywords.map((k) => (
+                    {filteredKeywords.map((k) => (
                       <tr
                         key={k.keyword}
                         className="border-b border-black/[.05] last:border-b-0 dark:border-white/[.06]"
@@ -285,7 +316,7 @@ export function CategoryKeywordPanel() {
               </div>
 
               <ul className="flex flex-col divide-y divide-black/[.05] sm:hidden dark:divide-white/[.06]">
-                {sortedKeywords.map((k) => (
+                {filteredKeywords.map((k) => (
                   <li key={k.keyword} className="flex flex-col gap-1.5 px-4 py-3">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{k.keyword}</span>
