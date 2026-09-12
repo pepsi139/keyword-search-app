@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     naver: naverResult.status === "fulfilled" ? naverResult.value : null,
     naverError: naverResult.status === "rejected" ? String(naverResult.reason) : null,
     google: googleResult.status === "fulfilled" ? googleResult.value : null,
+    googleError: googleResult.status === "rejected" ? String(googleResult.reason) : null,
     blogCount: blogResult.status === "fulfilled" ? blogResult.value : null,
   });
 }

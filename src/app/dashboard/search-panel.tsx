@@ -40,6 +40,7 @@ type SearchResult = {
   } | null;
   naverError: string | null;
   google: { avgMonthlySearches: number } | null;
+  googleError: string | null;
   blogCount: number | null;
 };
 
@@ -455,7 +456,7 @@ export function SearchPanel() {
                     value={
                       result.google
                         ? numberFormat.format(result.google.avgMonthlySearches)
-                        : "승인 심사중"
+                        : "조회 실패"
                     }
                   />
                 </div>
