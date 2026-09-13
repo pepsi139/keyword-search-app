@@ -39,6 +39,9 @@ export default async function DashboardLayout({
             <span className="text-lg font-medium tracking-tight">
               Keyword
               <span className="text-blue-600 dark:text-blue-400">Radar</span>
+              {" (키워드"}
+              <span className="text-blue-600 dark:text-blue-400">레이더</span>
+              {")"}
             </span>
           </div>
           <NavLinks />

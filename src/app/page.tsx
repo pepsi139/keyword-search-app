@@ -71,6 +71,9 @@ export default function Home() {
           <span className="text-lg font-medium tracking-tight text-zinc-900 dark:text-zinc-50">
             Keyword
             <span className="text-blue-600 dark:text-blue-400">Radar</span>
+            <span className="text-zinc-900 dark:text-zinc-50"> (키워드</span>
+            <span className="text-blue-600 dark:text-blue-400">레이더</span>
+            <span className="text-zinc-900 dark:text-zinc-50">)</span>
           </span>
         </div>
         <Link
