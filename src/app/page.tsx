@@ -45,9 +45,6 @@ export default function Home() {
 
       <main className="flex flex-1 items-center justify-center px-6 py-16">
         <div className="flex w-full max-w-2xl flex-col items-center gap-6 text-center">
-          <span className="rounded-full bg-black/[.06] px-3 py-1 text-sm font-medium text-zinc-600 dark:bg-white/[.08] dark:text-zinc-400">
-            개발 준비 중
-          </span>
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-4xl">
             네이버·구글·유튜브를 한 번에 보는
             <br />
