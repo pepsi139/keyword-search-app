@@ -22,6 +22,12 @@ export default function Home() {
         >
           시작하기
         </Link>
+        <Link
+          href="/privacy"
+          className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+        >
+          개인정보처리방침
+        </Link>
       </main>
     </div>
   );
