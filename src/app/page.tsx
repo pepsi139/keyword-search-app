@@ -2,15 +2,53 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+
+type SearchResult = {
+  keyword: string;
+  naver: { pcCount: number; mobileCount: number } | null;
+  naverError: string | null;
+  google: { avgMonthlySearches: number } | null;
+  googleError: string | null;
+  blogCount: number | null;
+  freeSearchesLeft: number | null;
+};
+
+const numberFormat = new Intl.NumberFormat("ko-KR");
+const FREE_SEARCH_LIMIT = 5;
 
 export default function Home() {
-  const router = useRouter();
   const [keyword, setKeyword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
+  const [result, setResult] = useState<SearchResult | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    router.push("/login");
+    if (!keyword.trim()) return;
+
+    setLoading(true);
+    setError(null);
+    setLimitReached(false);
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyword: keyword.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "검색 중 오류가 발생했습니다.");
+        setLimitReached(Boolean(data.limitReached));
+        setResult(null);
+      } else {
+        setResult(data);
+      }
+    } catch {
+      setError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -54,7 +92,7 @@ export default function Home() {
           <p className="text-base leading-7 text-zinc-600 dark:text-zinc-400">
             네이버, 구글, 유튜브의 키워드 검색량과 조회수를 한 화면에서 비교해주는 마케팅
             리서치용 웹 서비스입니다. 콘텐츠 기획과 광고 키워드 선정을 돕기 위해 개인 프로젝트로
-            개발 중이며, 현재는 초기 개발 단계입니다.
+            개발 중입니다.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-2 w-full max-w-xl">
@@ -67,19 +105,86 @@ export default function Home() {
               />
               <button
                 type="submit"
+                disabled={loading}
                 aria-label="검색"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-colors hover:bg-[#383838] disabled:opacity-50 dark:hover:bg-[#ccc]"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="M21 21l-4.3-4.3" />
-                </svg>
+                {loading ? (
+                  <span className="text-xs">···</span>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M21 21l-4.3-4.3" />
+                  </svg>
+                )}
               </button>
             </div>
             <p className="mt-2 text-xs text-zinc-400">
-              검색하려면 로그인이 필요합니다 — 입력 후 검색을 누르면 로그인 화면으로 이동합니다.
+              로그인 없이 {FREE_SEARCH_LIMIT}회까지 무료로 검색해보실 수 있습니다.
             </p>
           </form>
+
+          {error && (
+            <div className="w-full max-w-xl rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+              <p>{error}</p>
+              {limitReached && (
+                <Link
+                  href="/login"
+                  className="mt-2 inline-block rounded-md bg-red-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                >
+                  로그인하고 계속 이용하기
+                </Link>
+              )}
+            </div>
+          )}
+
+          {result && (
+            <div className="w-full max-w-xl rounded-lg border border-black/[.08] p-5 text-left dark:border-white/[.12]">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-zinc-500">
+                  &quot;{result.keyword}&quot; 검색 결과
+                </h2>
+                {result.freeSearchesLeft !== null && (
+                  <span className="text-xs text-zinc-400">
+                    무료 검색 {result.freeSearchesLeft}/{FREE_SEARCH_LIMIT}회 남음
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div>
+                  <p className="text-xs text-zinc-500">네이버 PC</p>
+                  <p className="text-lg font-bold">
+                    {result.naver ? numberFormat.format(result.naver.pcCount) : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">네이버 모바일</p>
+                  <p className="text-lg font-bold">
+                    {result.naver ? numberFormat.format(result.naver.mobileCount) : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">구글 월평균</p>
+                  <p className="text-lg font-bold">
+                    {result.google ? numberFormat.format(result.google.avgMonthlySearches) : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">블로그 문서수</p>
+                  <p className="text-lg font-bold">
+                    {result.blogCount !== null ? numberFormat.format(result.blogCount) : "-"}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-4 text-xs text-zinc-400">
+                연관 키워드, 검색 추이, 경쟁도 등 더 자세한 분석은{" "}
+                <Link href="/login" className="underline">
+                  로그인
+                </Link>{" "}
+                후 이용하실 수 있습니다.
+              </p>
+            </div>
+          )}
 
           <Link
             href="/privacy"
