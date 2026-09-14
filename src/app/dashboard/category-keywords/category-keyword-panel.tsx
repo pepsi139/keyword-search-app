@@ -65,6 +65,7 @@ export function CategoryKeywordPanel() {
   const [result, setResult] = useState<ResultData | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [minSearch, setMinSearch] = useState(0);
+  const [goldenOnly, setGoldenOnly] = useState(false);
 
   const selectedGroup = DIRECTORY_GROUPS.find((g) => g.seq === groupSeq) ?? null;
   const selectedSubGroup = selectedGroup?.subGroups.find((s) => s.name === subGroupName) ?? null;
@@ -96,6 +97,7 @@ export function CategoryKeywordPanel() {
     setError(null);
     setResult(null);
     setMinSearch(0);
+    setGoldenOnly(false);
     try {
       const res = await fetch("/api/category-keywords", {
         method: "POST",
@@ -128,7 +130,9 @@ export function CategoryKeywordPanel() {
       })
     : [];
 
-  const filteredKeywords = sortedKeywords.filter((k) => k.totalSearch >= minSearch);
+  const filteredKeywords = sortedKeywords.filter(
+    (k) => k.totalSearch >= minSearch && (!goldenOnly || k.competition === "유리"),
+  );
 
   return (
     <div className="flex w-full max-w-5xl flex-col gap-6">
@@ -262,6 +266,20 @@ export function CategoryKeywordPanel() {
                 초기화
               </button>
             )}
+
+            <label
+              className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+              title="검색량은 있는데 경쟁 문서가 적어 상위 노출이 비교적 쉬운 키워드 (경쟁도: 유리)"
+            >
+              <input
+                type="checkbox"
+                checked={goldenOnly}
+                onChange={(e) => setGoldenOnly(e.target.checked)}
+                className="h-3.5 w-3.5 accent-emerald-600"
+              />
+              🏆 황금 키워드만 보기
+            </label>
+
             <span className="text-xs text-zinc-400">
               {filteredKeywords.length}개 표시 중 (전체 {result.keywords.length}개)
             </span>
@@ -269,7 +287,8 @@ export function CategoryKeywordPanel() {
 
           {filteredKeywords.length === 0 ? (
             <p className="rounded-lg border border-black/[.08] p-4 text-sm text-zinc-400 dark:border-white/[.12]">
-              조건을 만족하는 대표 키워드가 없습니다. 최소 검색량을 낮추거나 다른 주제를 선택해보세요.
+              조건을 만족하는 대표 키워드가 없습니다. {goldenOnly && "황금 키워드 필터를 끄거나, "}
+              최소 검색량을 낮추거나 다른 주제를 선택해보세요.
             </p>
           ) : (
             <div className="overflow-hidden rounded-lg border border-black/[.08] dark:border-white/[.12]">

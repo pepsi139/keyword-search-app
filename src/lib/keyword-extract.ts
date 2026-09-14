@@ -76,7 +76,7 @@ export function extractCandidateKeywords(titles: string[], limit = 60): KeywordC
 
   return [...freq.entries()]
     .map(([keyword, count]) => ({ keyword, freq: count, n: keyword.includes(" ") ? keyword.split(" ").length : 1 }))
-    .filter((c) => (c.n === 1 ? c.freq >= 3 : c.freq >= 2))
+    .filter((c) => c.freq >= 2)
     .sort((a, b) => b.freq * (1 + 0.15 * (b.n - 1)) - a.freq * (1 + 0.15 * (a.n - 1)))
     .slice(0, limit);
 }

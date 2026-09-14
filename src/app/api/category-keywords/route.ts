@@ -5,7 +5,7 @@ import { extractCandidateKeywords } from "@/lib/keyword-extract";
 import { getNaverSearchVolumeBatch } from "@/lib/naver";
 import { getNaverBlogCount } from "@/lib/naver-blog";
 
-export const maxDuration = 45;
+export const maxDuration = 60;
 
 export type CategoryKeyword = {
   keyword: string;
@@ -51,8 +51,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const titles = await getDirectoryTitles(directorySeq, 8);
-    const candidates = extractCandidateKeywords(titles, 50);
+    const titles = await getDirectoryTitles(directorySeq, 20);
+    const candidates = extractCandidateKeywords(titles, 100);
 
     if (candidates.length === 0) {
       return NextResponse.json({
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       .filter((c) => c.totalSearch >= 10)
       .map((c) => ({ ...c, score: c.freq * (1 + 0.15 * (c.n - 1)) * Math.log(c.totalSearch + 1) }))
       .sort((a, b) => b.score - a.score)
-      .slice(0, 30);
+      .slice(0, 60);
 
     const docCounts = await Promise.allSettled(
       withVolume.map((c) => getNaverBlogCount(c.keyword)),
