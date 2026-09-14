@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { findTopic, getDirectoryTitles } from "@/lib/naver-directory";
 import { extractCandidateKeywords } from "@/lib/keyword-extract";
 import { getNaverSearchVolumeBatch } from "@/lib/naver";
-import { getNaverBlogCount } from "@/lib/naver-blog";
+import { getNaverBlogCount } from "@/lib/naver-docs";
+import { getCompetition } from "@/lib/competition";
 
 export const maxDuration = 60;
 
@@ -21,10 +22,10 @@ export type CategoryKeyword = {
 // 동일한 기준(30 / 150)을 사용한다 — 둘 다 같은 네이버 블로그 검색 API의
 // 전체 문서수(부분 일치 포함)를 분모로 쓰므로 실측 스케일이 같다.
 function getCompetitionLabel(docCount: number, totalSearch: number): CategoryKeyword["competition"] {
-  if (totalSearch <= 0) return null;
-  const ratio = docCount / totalSearch;
-  if (ratio < 30) return "유리";
-  if (ratio < 150) return "보통";
+  const c = getCompetition(docCount, totalSearch);
+  if (!c) return null;
+  if (c.grade === "golden" || c.grade === "low") return "유리";
+  if (c.grade === "medium") return "보통";
   return "포화";
 }
 

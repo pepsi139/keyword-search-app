@@ -64,9 +64,10 @@ export async function getNaverSearchVolume(
   }
 
   const data = (await res.json()) as { keywordList?: NaverKeywordItem[] };
-  const normalized = keyword.replace(/\s/g, "");
+  // 키워드도구는 relKeyword 의 영문을 대문자로 돌려주므로 대소문자 무시 비교
+  const normalized = keyword.replace(/\s/g, "").toUpperCase();
   const list = data.keywordList ?? [];
-  const stat = list.find((item) => item.relKeyword === normalized) ?? list[0];
+  const stat = list.find((item) => item.relKeyword.toUpperCase() === normalized) ?? list[0];
 
   if (!stat) return null;
 
@@ -133,7 +134,7 @@ export async function getNaverSearchVolumeBatch(
 ): Promise<Map<string, VolumeResult>> {
   const normalizedToOriginal = new Map<string, string>();
   for (const kw of keywords) {
-    normalizedToOriginal.set(kw.replace(/\s/g, ""), kw);
+    normalizedToOriginal.set(kw.replace(/\s/g, "").toUpperCase(), kw);
   }
   const normalizedKeywords = [...normalizedToOriginal.keys()];
 
@@ -146,7 +147,7 @@ export async function getNaverSearchVolumeBatch(
   for (const chunk of chunks) {
     const chunkResult = await fetchVolumeChunk(chunk);
     for (const [normalized, volume] of chunkResult) {
-      const original = normalizedToOriginal.get(normalized);
+      const original = normalizedToOriginal.get(normalized.toUpperCase());
       if (original) result.set(original, volume);
     }
     // 검색광고 API 초당 호출 제한을 피하기 위한 짧은 간격

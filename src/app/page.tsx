@@ -9,7 +9,7 @@ type SearchResult = {
   naverError: string | null;
   google: { avgMonthlySearches: number } | null;
   googleError: string | null;
-  blogCount: number | null;
+  docCounts: { blog: number | null };
   freeSearchesLeft: number | null;
 };
 
@@ -175,7 +175,7 @@ export default function Home() {
                 <div>
                   <p className="text-xs text-zinc-500">블로그 문서수</p>
                   <p className="text-lg font-bold">
-                    {result.blogCount !== null ? numberFormat.format(result.blogCount) : "-"}
+                    {result.docCounts.blog !== null ? numberFormat.format(result.docCounts.blog) : "-"}
                   </p>
                 </div>
               </div>

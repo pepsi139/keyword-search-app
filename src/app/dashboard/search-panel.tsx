@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { TrendChart } from "./trend-chart";
 import { KeywordSidebar } from "./keyword-sidebar";
+import type { DocCounts } from "@/lib/naver-docs";
+import type { Competition, CompetitionGrade } from "@/lib/competition";
+import type { SerpResult } from "@/lib/naver-serp";
+import type { GoldenScore, GoldenGrade } from "@/lib/golden";
 
 type TrendingKeyword = { keyword: string; count: number };
 
@@ -41,10 +45,16 @@ type SearchResult = {
   naverError: string | null;
   google: { avgMonthlySearches: number } | null;
   googleError: string | null;
-  blogCount: number | null;
+  docCounts: DocCounts;
+  competition: Competition | null;
+  serp: SerpResult | null;
+  serpError: string | null;
+  golden: GoldenScore | null;
 };
 
-function StatIcon({ variant }: { variant: "pc" | "mobile" | "sum" | "blog" | "google" }) {
+type IconVariant = "pc" | "mobile" | "sum" | "blog" | "google" | "cafe" | "kin" | "web";
+
+function StatIcon({ variant }: { variant: IconVariant }) {
   const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8 } as const;
   if (variant === "pc")
     return (
@@ -73,6 +83,27 @@ function StatIcon({ variant }: { variant: "pc" | "mobile" | "sum" | "blog" | "go
         <path d="M8 9h8M8 13h8M8 17h4" />
       </svg>
     );
+  if (variant === "cafe")
+    return (
+      <svg {...common}>
+        <path d="M4 8h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8z" />
+        <path d="M16 10h2a2 2 0 0 1 0 4h-2M6 4v2M10 4v2" />
+      </svg>
+    );
+  if (variant === "kin")
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5M12 17h.01" />
+      </svg>
+    );
+  if (variant === "web")
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+      </svg>
+    );
   return (
     <svg {...common}>
       <circle cx="11" cy="11" r="7" />
@@ -87,7 +118,7 @@ function StatCard({
   label,
   value,
 }: {
-  icon: "pc" | "mobile" | "sum" | "blog" | "google";
+  icon: IconVariant;
   color: string;
   label: string;
   value: string;
@@ -114,12 +145,146 @@ const PERIODS = [
 
 const numberFormat = new Intl.NumberFormat("ko-KR");
 
-function getCompetitionLevel(blogCount: number | null, totalSearch: number) {
-  if (blogCount === null || totalSearch <= 0) return null;
-  const ratio = blogCount / totalSearch;
-  if (ratio < 30) return { label: "낮음", color: "text-emerald-600 dark:text-emerald-400" };
-  if (ratio < 150) return { label: "보통", color: "text-amber-600 dark:text-amber-400" };
-  return { label: "높음", color: "text-red-600 dark:text-red-400" };
+// 로컬 지식iN 반자동 답변 도구 주소. 설정된 환경(개발자 PC)에서만 연결 버튼이 보임
+const KIN_TOOL_URL = process.env.NEXT_PUBLIC_KIN_TOOL_URL;
+
+function kinToolLink(keyword: string) {
+  if (!KIN_TOOL_URL) return null;
+  const url = new URL(KIN_TOOL_URL);
+  url.searchParams.set("q", keyword);
+  return url.toString();
+}
+
+const GRADE_ORDER: CompetitionGrade[] = ["golden", "low", "medium", "high", "saturated"];
+const GRADE_STYLE: Record<CompetitionGrade, { text: string; bar: string }> = {
+  golden: { text: "text-yellow-600 dark:text-yellow-400", bar: "bg-yellow-400" },
+  low: { text: "text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500" },
+  medium: { text: "text-amber-600 dark:text-amber-400", bar: "bg-amber-500" },
+  high: { text: "text-orange-600 dark:text-orange-400", bar: "bg-orange-500" },
+  saturated: { text: "text-red-600 dark:text-red-400", bar: "bg-red-500" },
+};
+
+function formatDocCount(value: number | null) {
+  return value === null ? "-" : numberFormat.format(value);
+}
+
+const GOLDEN_STYLE: Record<GoldenGrade, { text: string; ring: string }> = {
+  golden: { text: "text-yellow-600 dark:text-yellow-400", ring: "border-yellow-400" },
+  good: { text: "text-emerald-600 dark:text-emerald-400", ring: "border-emerald-500" },
+  normal: { text: "text-amber-600 dark:text-amber-400", ring: "border-amber-500" },
+  hard: { text: "text-red-600 dark:text-red-400", ring: "border-red-500" },
+};
+
+function GoldenCard({ golden, keyword }: { golden: GoldenScore | null; keyword: string }) {
+  const kinLink = kinToolLink(keyword);
+  const actionButton = kinLink && (
+    <a
+      href={kinLink}
+      target="_blank"
+      rel="noopener"
+      className="mt-2 inline-flex w-fit items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-500/40 dark:bg-violet-500/10 dark:text-violet-300 dark:hover:bg-violet-500/20"
+    >
+      이 키워드로 지식iN 질문 수집 ↗
+    </a>
+  );
+
+  if (!golden) {
+    return (
+      <div className="flex flex-col">
+        <p className="text-sm text-zinc-400">검색량 또는 문서수가 없어 계산할 수 없습니다</p>
+        {actionButton}
+      </div>
+    );
+  }
+  const style = GOLDEN_STYLE[golden.grade];
+  return (
+    <div className="flex items-start gap-4">
+      <div
+        className={`flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-4 ${style.ring}`}
+      >
+        <span className={`text-xl font-bold leading-none ${style.text}`}>{golden.score}</span>
+        <span className="mt-0.5 text-[10px] text-zinc-500">/ 100</span>
+      </div>
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className={`text-lg font-bold ${style.text}`}>{golden.label}</p>
+        <p className="text-xs text-zinc-500">{golden.reason}</p>
+        <div className="mt-1 flex gap-3 text-[11px] text-zinc-400">
+          <span>검색량 {golden.parts.volume}</span>
+          <span>경쟁 {golden.parts.competition}</span>
+          <span>섹션 {golden.parts.section}</span>
+        </div>
+        {actionButton}
+      </div>
+    </div>
+  );
+}
+
+function SerpOrderCard({ serp, error }: { serp: SerpResult | null; error: string | null }) {
+  if (!serp) {
+    return (
+      <p className="text-sm text-zinc-400">
+        {error ? "통합검색 섹션을 가져오지 못했습니다" : "데이터 없음"}
+      </p>
+    );
+  }
+  return (
+    <>
+      <ol className="flex flex-wrap items-center gap-1.5">
+        {serp.sections.map((s, i) => {
+          const isBlog = s.type === "blog" || s.type === "popular_posts";
+          const cls = isBlog
+            ? "border-emerald-500 bg-emerald-50 font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+            : s.isAd
+              ? "border-dashed border-zinc-300 text-zinc-400 dark:border-zinc-600"
+              : "border-black/[.1] text-zinc-600 dark:border-white/[.16] dark:text-zinc-300";
+          return (
+            <li key={s.type} className="flex items-center gap-1.5">
+              <span className={`rounded-full border px-2.5 py-0.5 text-xs ${cls}`}>
+                {i + 1}. {s.label}
+              </span>
+              {i < serp.sections.length - 1 && <span className="text-zinc-300 dark:text-zinc-600">›</span>}
+            </li>
+          );
+        })}
+      </ol>
+      <p className="mt-2 text-xs text-zinc-400">
+        {serp.blogRank
+          ? `블로그 섹션이 ${serp.blogRank}번째 (광고 제외 ${serp.blogOrganicRank}번째)에 노출됩니다`
+          : "통합검색 첫 화면에 블로그 섹션이 없습니다"}{" "}
+        · 모바일 기준, 하루 1회 갱신
+      </p>
+    </>
+  );
+}
+
+function CompetitionCard({ competition }: { competition: Competition | null }) {
+  if (!competition) {
+    return (
+      <>
+        <p className="text-sm text-zinc-400">데이터 부족</p>
+        <p className="mt-1 text-xs text-zinc-400">검색량 또는 블로그 문서수를 가져오지 못했습니다</p>
+      </>
+    );
+  }
+  const style = GRADE_STYLE[competition.grade];
+  const activeIndex = GRADE_ORDER.indexOf(competition.grade);
+  return (
+    <>
+      <div className="flex items-baseline gap-2">
+        <p className={`text-lg font-bold ${style.text}`}>{competition.label}</p>
+        <span className="text-xs text-zinc-500">문서수 / 검색량 = {numberFormat.format(competition.ratio)}</span>
+      </div>
+      <div className="mt-2 flex gap-1">
+        {GRADE_ORDER.map((g, i) => (
+          <span
+            key={g}
+            className={`h-1.5 flex-1 rounded-full ${i <= activeIndex ? style.bar : "bg-black/[.08] dark:bg-white/[.12]"}`}
+          />
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-zinc-400">{competition.description}</p>
+    </>
+  );
 }
 
 export function SearchPanel() {
@@ -401,65 +566,86 @@ export function SearchPanel() {
           <div className="flex flex-1 flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
+                <h3 className="mb-3 text-sm font-semibold text-zinc-500">황금지수</h3>
+                <GoldenCard golden={result.golden} keyword={result.keyword} />
+              </div>
+              <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
+                <h3 className="mb-3 text-sm font-semibold text-zinc-500">네이버 통합검색 노출 순서</h3>
+                <SerpOrderCard serp={result.serp} error={result.serpError} />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
                 <h3 className="mb-4 text-sm font-semibold text-zinc-500">
                   월간 검색량
                 </h3>
-                {result.naver ? (
-                  <div className="grid grid-cols-3 gap-3">
-                    <StatCard
-                      icon="pc"
-                      color="bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400"
-                      label="PC"
-                      value={numberFormat.format(result.naver.pcCount)}
-                    />
-                    <StatCard
-                      icon="mobile"
-                      color="bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-400"
-                      label="모바일"
-                      value={numberFormat.format(result.naver.mobileCount)}
-                    />
-                    <StatCard
-                      icon="sum"
-                      color="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                      label="합계"
-                      value={numberFormat.format(
-                        result.naver.pcCount + result.naver.mobileCount,
-                      )}
-                    />
-                  </div>
-                ) : (
-                  <p className="text-sm text-zinc-400">
-                    {result.naverError ? "조회 실패" : "데이터 없음"}
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
-                <h3 className="mb-4 text-sm font-semibold text-zinc-500">
-                  월간 콘텐츠 발행량 / 구글 검색량
-                </h3>
                 <div className="grid grid-cols-2 gap-3">
                   <StatCard
-                    icon="blog"
-                    color="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
-                    label="블로그"
+                    icon="pc"
+                    color="bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400"
+                    label="네이버 PC"
+                    value={result.naver ? numberFormat.format(result.naver.pcCount) : "-"}
+                  />
+                  <StatCard
+                    icon="mobile"
+                    color="bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-400"
+                    label="네이버 모바일"
+                    value={result.naver ? numberFormat.format(result.naver.mobileCount) : "-"}
+                  />
+                  <StatCard
+                    icon="sum"
+                    color="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                    label="네이버 합계"
                     value={
-                      result.blogCount !== null
-                        ? numberFormat.format(result.blogCount)
-                        : "조회 실패"
+                      result.naver
+                        ? numberFormat.format(result.naver.pcCount + result.naver.mobileCount)
+                        : "-"
                     }
                   />
                   <StatCard
                     icon="google"
                     color="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
                     label="구글 월평균"
-                    value={
-                      result.google
-                        ? numberFormat.format(result.google.avgMonthlySearches)
-                        : "조회 실패"
-                    }
+                    value={result.google ? numberFormat.format(result.google.avgMonthlySearches) : "-"}
                   />
                 </div>
+                {result.naverError && (
+                  <p className="mt-2 text-xs text-red-500">네이버 검색량 조회 실패</p>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
+                <h3 className="mb-4 text-sm font-semibold text-zinc-500">누적 문서수</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <StatCard
+                    icon="blog"
+                    color="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+                    label="블로그"
+                    value={formatDocCount(result.docCounts.blog)}
+                  />
+                  <StatCard
+                    icon="cafe"
+                    color="bg-lime-50 text-lime-600 dark:bg-lime-500/10 dark:text-lime-400"
+                    label="카페"
+                    value={formatDocCount(result.docCounts.cafe)}
+                  />
+                  <StatCard
+                    icon="kin"
+                    color="bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400"
+                    label="지식iN"
+                    value={formatDocCount(result.docCounts.kin)}
+                  />
+                  <StatCard
+                    icon="web"
+                    color="bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"
+                    label="웹문서"
+                    value={formatDocCount(result.docCounts.web)}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-zinc-400">
+                  네이버 검색 결과 기준 전체 문서수 (- 는 조회 불가)
+                </p>
               </div>
             </div>
 
@@ -486,23 +672,8 @@ export function SearchPanel() {
               </div>
 
               <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
-                <h3 className="mb-2 text-sm font-semibold text-zinc-500">경쟁도</h3>
-                {(() => {
-                  const level = result.naver
-                    ? getCompetitionLevel(
-                        result.blogCount,
-                        result.naver.pcCount + result.naver.mobileCount,
-                      )
-                    : null;
-                  return level ? (
-                    <p className={`text-lg font-bold ${level.color}`}>{level.label}</p>
-                  ) : (
-                    <p className="text-sm text-zinc-400">데이터 부족</p>
-                  );
-                })()}
-                <p className="mt-1 text-xs text-zinc-400">
-                  블로그 발행량 대비 검색량 기준 콘텐츠 포화도 (광고 경쟁도 아님)
-                </p>
+                <h3 className="mb-2 text-sm font-semibold text-zinc-500">블로그 경쟁강도</h3>
+                <CompetitionCard competition={result.competition} />
               </div>
             </div>
 

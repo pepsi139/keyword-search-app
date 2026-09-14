@@ -3,7 +3,10 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getNaverSearchVolume } from "@/lib/naver";
 import { getGoogleSearchVolume } from "@/lib/google-ads";
-import { getNaverBlogCount } from "@/lib/naver-blog";
+import { getNaverDocCounts } from "@/lib/naver-docs";
+import { getCompetition } from "@/lib/competition";
+import { getNaverSerp } from "@/lib/naver-serp";
+import { getGoldenScore } from "@/lib/golden";
 
 const FREE_SEARCH_COOKIE = "kr_free_searches";
 const FREE_SEARCH_LIMIT = 5;
@@ -34,19 +37,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "키워드를 입력해주세요." }, { status: 400 });
   }
 
-  const [naverResult, googleResult, blogResult] = await Promise.allSettled([
-    getNaverSearchVolume(keyword),
-    getGoogleSearchVolume(keyword),
-    getNaverBlogCount(keyword),
+  const [naverResult, googleResult, docCounts, serpResult] = await Promise.all([
+    getNaverSearchVolume(keyword).then(
+      (value) => ({ value, error: null }),
+      (reason: unknown) => ({ value: null, error: String(reason) }),
+    ),
+    getGoogleSearchVolume(keyword).then(
+      (value) => ({ value, error: null }),
+      (reason: unknown) => ({ value: null, error: String(reason) }),
+    ),
+    getNaverDocCounts(keyword),
+    getNaverSerp(keyword).then(
+      (value) => ({ value, error: null }),
+      (reason: unknown) => ({ value: null, error: String(reason) }),
+    ),
   ]);
+
+  const naver = naverResult.value;
+  const totalSearches = naver ? naver.pcCount + naver.mobileCount : 0;
+  const competition = naver ? getCompetition(docCounts.blog, totalSearches) : null;
+  const golden = getGoldenScore(totalSearches, competition, serpResult.value);
 
   const response = NextResponse.json({
     keyword,
-    naver: naverResult.status === "fulfilled" ? naverResult.value : null,
-    naverError: naverResult.status === "rejected" ? String(naverResult.reason) : null,
-    google: googleResult.status === "fulfilled" ? googleResult.value : null,
-    googleError: googleResult.status === "rejected" ? String(googleResult.reason) : null,
-    blogCount: blogResult.status === "fulfilled" ? blogResult.value : null,
+    naver,
+    naverError: naverResult.error,
+    google: googleResult.value,
+    googleError: googleResult.error,
+    docCounts,
+    competition,
+    serp: serpResult.value,
+    serpError: serpResult.error,
+    golden,
     freeSearchesLeft: user ? null : Math.max(0, FREE_SEARCH_LIMIT - (usedFreeSearches + 1)),
   });
 
