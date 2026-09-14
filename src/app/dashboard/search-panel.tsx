@@ -145,12 +145,9 @@ const PERIODS = [
 
 const numberFormat = new Intl.NumberFormat("ko-KR");
 
-// 로컬 지식iN 반자동 답변 도구 주소. 설정된 환경(개발자 PC)에서만 연결 버튼이 보임
-const KIN_TOOL_URL = process.env.NEXT_PUBLIC_KIN_TOOL_URL;
-
-function kinToolLink(keyword: string) {
-  if (!KIN_TOOL_URL) return null;
-  const url = new URL(KIN_TOOL_URL);
+function kinToolLink(baseUrl: string | null, keyword: string) {
+  if (!baseUrl) return null;
+  const url = new URL(baseUrl);
   url.searchParams.set("q", keyword);
   return url.toString();
 }
@@ -175,8 +172,16 @@ const GOLDEN_STYLE: Record<GoldenGrade, { text: string; ring: string }> = {
   hard: { text: "text-red-600 dark:text-red-400", ring: "border-red-500" },
 };
 
-function GoldenCard({ golden, keyword }: { golden: GoldenScore | null; keyword: string }) {
-  const kinLink = kinToolLink(keyword);
+function GoldenCard({
+  golden,
+  keyword,
+  kinToolUrl,
+}: {
+  golden: GoldenScore | null;
+  keyword: string;
+  kinToolUrl: string | null;
+}) {
+  const kinLink = kinToolLink(kinToolUrl, keyword);
   const actionButton = kinLink && (
     <a
       href={kinLink}
@@ -287,7 +292,7 @@ function CompetitionCard({ competition }: { competition: Competition | null }) {
   );
 }
 
-export function SearchPanel() {
+export function SearchPanel({ kinToolUrl }: { kinToolUrl: string | null }) {
   const [keyword, setKeyword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -567,7 +572,7 @@ export function SearchPanel() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
                 <h3 className="mb-3 text-sm font-semibold text-zinc-500">황금지수</h3>
-                <GoldenCard golden={result.golden} keyword={result.keyword} />
+                <GoldenCard golden={result.golden} keyword={result.keyword} kinToolUrl={kinToolUrl} />
               </div>
               <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
                 <h3 className="mb-3 text-sm font-semibold text-zinc-500">네이버 통합검색 노출 순서</h3>
