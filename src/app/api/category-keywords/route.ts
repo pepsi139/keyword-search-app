@@ -101,6 +101,7 @@ export async function POST(request: Request) {
       const candidates = extractCandidateKeywords(
         posts.map((p) => `${p.title} ${p.description}`),
         100,
+        l2,
       );
       send({ type: "step", step: "extract", status: "done", candidateCount: candidates.length });
 
