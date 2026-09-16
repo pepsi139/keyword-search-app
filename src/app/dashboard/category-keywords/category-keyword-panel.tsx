@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DIRECTORY_GROUPS } from "@/lib/naver-directory";
 import type { CategoryKeyword } from "@/app/api/category-keywords/route";
 
@@ -80,6 +80,31 @@ function daysAgoStr(days: number) {
 
 type Subtree = Record<string, Record<string, Record<string, string[]>>>;
 
+// 다른 페이지(키워드 검색량 비교 등)에 갔다가 돌아와도 선택/결과가 남아있도록
+// sessionStorage에 보관한다 (탭을 닫으면 사라짐, React 상태는 라우트 이동 시 언마운트되어 사라지므로).
+const STORAGE_KEY = "categoryKeywordPanelState";
+
+type PersistedState = {
+  l1: string | null;
+  l2: string | null;
+  l3: string | null;
+  l4: string | null;
+  l5: string | null;
+  l6: string;
+  subtree: Subtree | null;
+  periodPreset: "7d" | "30d" | "90d" | "custom";
+  startDate: string;
+  endDate: string;
+  sortKey: SortKey;
+  minSearch: number;
+  goldenOnly: boolean;
+  steps: Steps;
+  queryLabel: string | null;
+  postCount: number | null;
+  generatedAt: string | null;
+  keywords: CategoryKeyword[];
+};
+
 export function CategoryKeywordPanel() {
   const [l1, setL1] = useState<string | null>(null);
   const [l2, setL2] = useState<string | null>(null);
@@ -106,6 +131,89 @@ export function CategoryKeywordPanel() {
   const [postCount, setPostCount] = useState<number | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [keywords, setKeywords] = useState<CategoryKeyword[]>([]);
+
+  const [hydrated, setHydrated] = useState(false);
+
+  // 마운트 시 이전에 저장해둔 선택/결과를 복원한다.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as PersistedState;
+        setL1(saved.l1 ?? null);
+        setL2(saved.l2 ?? null);
+        setL3(saved.l3 ?? null);
+        setL4(saved.l4 ?? null);
+        setL5(saved.l5 ?? null);
+        setL6(saved.l6 ?? "");
+        setSubtree(saved.subtree ?? null);
+        setPeriodPreset(saved.periodPreset ?? "30d");
+        setStartDate(saved.startDate ?? daysAgoStr(30));
+        setEndDate(saved.endDate ?? todayStr());
+        setSortKey(saved.sortKey ?? "score");
+        setMinSearch(saved.minSearch ?? 0);
+        setGoldenOnly(saved.goldenOnly ?? false);
+        setSteps(saved.steps ?? IDLE_STEPS);
+        setQueryLabel(saved.queryLabel ?? null);
+        setPostCount(saved.postCount ?? null);
+        setGeneratedAt(saved.generatedAt ?? null);
+        setKeywords(saved.keywords ?? []);
+      }
+    } catch {
+      // 저장된 값이 깨져있거나 sessionStorage를 쓸 수 없으면 그냥 빈 상태로 시작한다.
+    }
+    setHydrated(true);
+  }, []);
+
+  // 선택/결과가 바뀔 때마다 저장한다 (복원이 끝나기 전에는 빈 초기값으로 덮어쓰지 않도록 대기).
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const state: PersistedState = {
+        l1,
+        l2,
+        l3,
+        l4,
+        l5,
+        l6,
+        subtree,
+        periodPreset,
+        startDate,
+        endDate,
+        sortKey,
+        minSearch,
+        goldenOnly,
+        steps,
+        queryLabel,
+        postCount,
+        generatedAt,
+        keywords,
+      };
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // 용량 초과 등으로 저장에 실패해도 화면 사용에는 지장이 없으므로 무시한다.
+    }
+  }, [
+    hydrated,
+    l1,
+    l2,
+    l3,
+    l4,
+    l5,
+    l6,
+    subtree,
+    periodPreset,
+    startDate,
+    endDate,
+    sortKey,
+    minSearch,
+    goldenOnly,
+    steps,
+    queryLabel,
+    postCount,
+    generatedAt,
+    keywords,
+  ]);
 
   const group = DIRECTORY_GROUPS.find((g) => g.name === l1) ?? null;
   const topicNames = group ? group.subGroups.flatMap((s) => s.topics.map((t) => t.name)) : [];
