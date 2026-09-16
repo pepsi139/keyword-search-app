@@ -128,6 +128,18 @@ export function findTopic(directorySeq: number): DirectoryTopic | null {
   return null;
 }
 
+// 6단계 카테고리 트리(자체 설계)의 1~2단계는 네이버 공식 대분류·소분류 이름을
+// 그대로 쓰므로, 이름으로 실제 directorySeq를 역으로 찾을 때 사용한다.
+export function findTopicByName(groupName: string, topicName: string): DirectoryTopic | null {
+  const group = DIRECTORY_GROUPS.find((g) => g.name === groupName);
+  if (!group) return null;
+  for (const sub of group.subGroups) {
+    const topic = sub.topics.find((t) => t.name === topicName);
+    if (topic) return topic;
+  }
+  return null;
+}
+
 type DirectoryPostItem = {
   title: string;
   briefContents?: string;

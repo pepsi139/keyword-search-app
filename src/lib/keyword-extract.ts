@@ -29,8 +29,9 @@ function cleanTitle(title: string): string {
   return title
     .replace(/https?:\/\/\S+/g, " ")
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, " ")
+    .replace(/[‘-‟]/g, " ") // 유니코드 따옴표류(‘’“”‚„‹› 등) — 네이버 검색광고 API가 포함 키워드를 거부함
     .replace(/[""''""()\[\]{}|~!@#$%^&*_+=<>\/\\`""]/g, " ")
-    .replace(/[·,:;]/g, " ")
+    .replace(/[·,:;.]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

@@ -115,6 +115,8 @@ async function fetchVolumeChunk(keywords: string[]): Promise<Map<string, VolumeR
   });
 
   if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`네이버 검색광고 API 오류 ${res.status}: ${body} (keywords: ${keywords.join(",")})`);
     throw new Error(`네이버 API 오류: ${res.status}`);
   }
 
@@ -145,10 +147,14 @@ export async function getNaverSearchVolumeBatch(
 
   const result = new Map<string, VolumeResult>();
   for (const chunk of chunks) {
-    const chunkResult = await fetchVolumeChunk(chunk);
-    for (const [normalized, volume] of chunkResult) {
-      const original = normalizedToOriginal.get(normalized.toUpperCase());
-      if (original) result.set(original, volume);
+    try {
+      const chunkResult = await fetchVolumeChunk(chunk);
+      for (const [normalized, volume] of chunkResult) {
+        const original = normalizedToOriginal.get(normalized.toUpperCase());
+        if (original) result.set(original, volume);
+      }
+    } catch {
+      // 특정 청크의 키워드 중 하나가 API 형식을 위반해도(특수문자 등) 나머지 청크는 계속 조회한다.
     }
     // 검색광고 API 초당 호출 제한을 피하기 위한 짧은 간격
     await new Promise((resolve) => setTimeout(resolve, 150));
