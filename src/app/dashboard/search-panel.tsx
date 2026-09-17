@@ -292,8 +292,11 @@ function CompetitionCard({ competition }: { competition: Competition | null }) {
   );
 }
 
+type Engine = "naver" | "google";
+
 export function SearchPanel({ kinToolUrl }: { kinToolUrl: string | null }) {
   const [keyword, setKeyword] = useState("");
+  const [engine, setEngine] = useState<Engine>("naver");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchResult | null>(null);
@@ -471,7 +474,18 @@ export function SearchPanel({ kinToolUrl }: { kinToolUrl: string | null }) {
           </p>
 
           <form onSubmit={handleSubmit} className="relative mt-8 w-full max-w-xl">
-            <div className="flex items-center gap-2 rounded-full border border-black/[.12] bg-white py-2 pl-6 pr-2 shadow-sm dark:border-white/[.16] dark:bg-zinc-900">
+            <div className="flex items-center gap-2 rounded-full border border-black/[.12] bg-white py-2 pl-2 pr-2 shadow-sm dark:border-white/[.16] dark:bg-zinc-900">
+              <button
+                type="button"
+                onClick={() => setEngine((prev) => (prev === "naver" ? "google" : "naver"))}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm ${
+                  engine === "naver"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                    : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
+                }`}
+              >
+                {engine === "naver" ? "네이버" : "구글"}
+              </button>
               <input
                 value={keyword}
                 onChange={(e) => {
@@ -583,40 +597,48 @@ export function SearchPanel({ kinToolUrl }: { kinToolUrl: string | null }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border border-black/[.08] p-4 dark:border-white/[.12]">
                 <h3 className="mb-4 text-sm font-semibold text-zinc-500">
-                  월간 검색량
+                  월간 검색량 <span className="font-normal text-zinc-400">({engine === "naver" ? "네이버" : "구글"})</span>
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <StatCard
-                    icon="pc"
-                    color="bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400"
-                    label="네이버 PC"
-                    value={result.naver ? numberFormat.format(result.naver.pcCount) : "-"}
-                  />
-                  <StatCard
-                    icon="mobile"
-                    color="bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-400"
-                    label="네이버 모바일"
-                    value={result.naver ? numberFormat.format(result.naver.mobileCount) : "-"}
-                  />
-                  <StatCard
-                    icon="sum"
-                    color="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                    label="네이버 합계"
-                    value={
-                      result.naver
-                        ? numberFormat.format(result.naver.pcCount + result.naver.mobileCount)
-                        : "-"
-                    }
-                  />
-                  <StatCard
-                    icon="google"
-                    color="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
-                    label="구글 월평균"
-                    value={result.google ? numberFormat.format(result.google.avgMonthlySearches) : "-"}
-                  />
-                </div>
-                {result.naverError && (
+                {engine === "naver" ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <StatCard
+                      icon="pc"
+                      color="bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400"
+                      label="네이버 PC"
+                      value={result.naver ? numberFormat.format(result.naver.pcCount) : "-"}
+                    />
+                    <StatCard
+                      icon="mobile"
+                      color="bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-400"
+                      label="네이버 모바일"
+                      value={result.naver ? numberFormat.format(result.naver.mobileCount) : "-"}
+                    />
+                    <StatCard
+                      icon="sum"
+                      color="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                      label="네이버 합계"
+                      value={
+                        result.naver
+                          ? numberFormat.format(result.naver.pcCount + result.naver.mobileCount)
+                          : "-"
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <StatCard
+                      icon="google"
+                      color="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
+                      label="구글 월평균"
+                      value={result.google ? numberFormat.format(result.google.avgMonthlySearches) : "-"}
+                    />
+                  </div>
+                )}
+                {engine === "naver" && result.naverError && (
                   <p className="mt-2 text-xs text-red-500">네이버 검색량 조회 실패</p>
+                )}
+                {engine === "google" && result.googleError && (
+                  <p className="mt-2 text-xs text-red-500">구글 검색량 조회 실패</p>
                 )}
               </div>
 
@@ -712,24 +734,27 @@ export function SearchPanel({ kinToolUrl }: { kinToolUrl: string | null }) {
                   transition: "opacity 0.25s ease",
                 }}
               >
-                <div>
-                  <p className="mb-1 text-xs text-zinc-500">네이버</p>
-                  {trendError ? (
-                    <p className="text-sm text-red-600 dark:text-red-400">{trendError}</p>
-                  ) : (
-                    <TrendChart data={naverTrend ?? []} />
-                  )}
-                </div>
-                <div>
-                  <p className="mb-1 text-xs text-zinc-500">구글 (비공식, 불안정할 수 있음)</p>
-                  {googleTrendError ? (
-                    <p className="text-sm text-red-600 dark:text-red-400">
-                      {googleTrendError}
-                    </p>
-                  ) : (
-                    <TrendChart data={googleTrend ?? []} />
-                  )}
-                </div>
+                {engine === "naver" ? (
+                  <div>
+                    <p className="mb-1 text-xs text-zinc-500">네이버</p>
+                    {trendError ? (
+                      <p className="text-sm text-red-600 dark:text-red-400">{trendError}</p>
+                    ) : (
+                      <TrendChart data={naverTrend ?? []} />
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="mb-1 text-xs text-zinc-500">구글 (비공식, 불안정할 수 있음)</p>
+                    {googleTrendError ? (
+                      <p className="text-sm text-red-600 dark:text-red-400">
+                        {googleTrendError}
+                      </p>
+                    ) : (
+                      <TrendChart data={googleTrend ?? []} />
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

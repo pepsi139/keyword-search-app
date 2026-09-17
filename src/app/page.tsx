@@ -16,8 +16,11 @@ type SearchResult = {
 const numberFormat = new Intl.NumberFormat("ko-KR");
 const FREE_SEARCH_LIMIT = 5;
 
+type Engine = "naver" | "google";
+
 export default function Home() {
   const [keyword, setKeyword] = useState("");
+  const [engine, setEngine] = useState<Engine>("naver");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
@@ -99,7 +102,18 @@ export default function Home() {
           </p>
 
           <form onSubmit={handleSubmit} className="mt-2 w-full max-w-xl">
-            <div className="flex items-center gap-2 rounded-full border border-black/[.12] bg-white py-2 pl-6 pr-2 shadow-sm dark:border-white/[.16] dark:bg-zinc-900">
+            <div className="flex items-center gap-2 rounded-full border border-black/[.12] bg-white py-2 pl-2 pr-2 shadow-sm dark:border-white/[.16] dark:bg-zinc-900">
+              <button
+                type="button"
+                onClick={() => setEngine((prev) => (prev === "naver" ? "google" : "naver"))}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors sm:text-sm ${
+                  engine === "naver"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                    : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
+                }`}
+              >
+                {engine === "naver" ? "네이버" : "구글"}
+              </button>
               <input
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
@@ -153,25 +167,30 @@ export default function Home() {
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div>
-                  <p className="text-xs text-zinc-500">네이버 PC</p>
-                  <p className="text-lg font-bold">
-                    {result.naver ? numberFormat.format(result.naver.pcCount) : "-"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500">네이버 모바일</p>
-                  <p className="text-lg font-bold">
-                    {result.naver ? numberFormat.format(result.naver.mobileCount) : "-"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500">구글 월평균</p>
-                  <p className="text-lg font-bold">
-                    {result.google ? numberFormat.format(result.google.avgMonthlySearches) : "-"}
-                  </p>
-                </div>
+              <div className="grid grid-cols-3 gap-4">
+                {engine === "naver" ? (
+                  <>
+                    <div>
+                      <p className="text-xs text-zinc-500">네이버 PC</p>
+                      <p className="text-lg font-bold">
+                        {result.naver ? numberFormat.format(result.naver.pcCount) : "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-500">네이버 모바일</p>
+                      <p className="text-lg font-bold">
+                        {result.naver ? numberFormat.format(result.naver.mobileCount) : "-"}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div className="col-span-2">
+                    <p className="text-xs text-zinc-500">구글 월평균</p>
+                    <p className="text-lg font-bold">
+                      {result.google ? numberFormat.format(result.google.avgMonthlySearches) : "-"}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-zinc-500">블로그 문서수</p>
                   <p className="text-lg font-bold">
